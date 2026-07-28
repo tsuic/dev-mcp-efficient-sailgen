@@ -26,22 +26,34 @@ The skill has a single entry point (`SKILL.md`) with a resource reference map th
 
 ## Installation
 
+The skill is the `skills/appian/` folder in this repo. Install it where your IDE loads skills from.
+
 ### Kiro
 
-Add as a workspace skill in `.kiro/skills/`.
+Add as a workspace skill in `.kiro/skills/` pointing to the skill folder URL:
+
+```
+https://github.com/appian/dev-mcp-skills/tree/main/skills/appian
+```
 
 ### Claude Code
 
+Copy the skill folder into your personal or project skills directory:
+
 ```bash
-git clone https://github.com/appian/dev-mcp-skills.git ~/.claude/skills/appian
+git clone --depth 1 https://github.com/appian/dev-mcp-skills.git /tmp/dev-mcp-skills
+cp -r /tmp/dev-mcp-skills/skills/appian ~/.claude/skills/appian
+rm -rf /tmp/dev-mcp-skills
 ```
+
+Use `.claude/skills/appian` (project-scoped) instead of `~/.claude/skills/appian` (user-scoped) if you prefer per-project installation.
 
 ### Cursor
 
-Add as project rules:
-
 ```bash
-git clone https://github.com/appian/dev-mcp-skills.git .cursor/rules/appian
+git clone --depth 1 https://github.com/appian/dev-mcp-skills.git /tmp/dev-mcp-skills
+cp -r /tmp/dev-mcp-skills/skills/appian .cursor/rules/appian
+rm -rf /tmp/dev-mcp-skills
 ```
 
 ### Other IDEs
