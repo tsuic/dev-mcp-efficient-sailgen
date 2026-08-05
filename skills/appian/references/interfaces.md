@@ -14,6 +14,7 @@
 - ✅ Header content layouts (HeaderContent, HeaderArea, ContentArea)
 - ✅ Standard display components: stamps, tags, progress bars, gauges, banners
 - ✅ Any interface where fields map to record type fields
+- ✅ Editable grids with add/remove rows (EditableGrid macro handles a!forEach internally)
 
 **Key advantages:**
 - Pass `recordTypeUuid` → all field bracket notation auto-resolved (no manual `'recordType!{uuid}...'`)
@@ -23,7 +24,7 @@
 - No `validateExpression` step needed — TSX handles validation
 
 ### Use `createInterface` (raw SAIL) when:
-- Dynamic column generation (`a!forEach` inside `columns:`)
+- Dynamic repetition beyond what EditableGrid handles (custom `a!forEach` patterns)
 - Computed data series for charts with runtime transformations
 - Complex conditional layouts with deeply nested `if()` / `choose()` branches
 - Patterns not in the TSX component set (custom plugin components)

@@ -368,7 +368,7 @@ This 15-step sequence ensures a complete, working data model with full bidirecti
 
 ### When NOT to use scaffoldInterface:
 
-- `a!forEach` inside layouts (dynamic repetition)
+- Dynamic repetition outside of EditableGrid (custom `a!forEach` patterns not covered by a macro)
 - Complex `if()`/`choose()` conditional rendering
 - Custom plugin components
 - Patterns outside the component set above
@@ -439,6 +439,24 @@ function SalesDashboard() {
           showLegend={true} />
       </Section>
     </Dashboard>
+  );
+}
+```
+
+### Example: Editable grid with add/remove rows
+
+```tsx
+import { Section, EditableGrid, TextField, IntegerField, DecimalField } from "@appian/adk";
+
+function LineItems(props: { items: any }) {
+  return (
+    <Section title="Line Items">
+      <EditableGrid data={props.items} newItemTemplate={{ description: "", quantity: 0, unitPrice: 0 }} addLabel="Add Line Item">
+        <TextField label="Description" field="description" />
+        <IntegerField label="Quantity" field="quantity" />
+        <DecimalField label="Unit Price" field="unitPrice" />
+      </EditableGrid>
+    </Section>
   );
 }
 ```
