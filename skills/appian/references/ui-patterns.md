@@ -1,3 +1,17 @@
+## ⚡ scaffoldInterface Shortcut
+
+For dashboards with KPIs, standard charts, record grids, and header content layouts,
+consider using `scaffoldInterface` (TSX) instead of hand-writing SAIL. It handles:
+- Dashboard + KPISection + KPICard → a!headerContentLayout with styled cards
+- LineChart, ColumnChart, BarChart, PieChart → a!chartField components
+- RecordGrid → a!gridField with a!recordData, fv!row, a!recordLink
+- HeaderContent → a!headerContentLayout with explicit header/content zones
+
+See `references/tools-mcp.md` → "scaffoldInterface" section for full syntax.
+Only fall back to raw SAIL for dynamic a!forEach patterns or complex conditional layouts.
+
+---
+
 # Interface UX Patterns
 
 ## Dashboard Pattern

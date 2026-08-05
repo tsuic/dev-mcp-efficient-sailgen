@@ -8,7 +8,10 @@
 - ✅ Forms or wizards bound to a record type
 - ✅ Record grids showing data with links, sorting, pagination
 - ✅ Dropdowns with choices from related records
-- ✅ Header content layouts (dashboards, summary views)
+- ✅ Dashboards with KPI cards, charts, and grids (Dashboard, KPISection, KPICard macros)
+- ✅ Standard charts: LineChart, ColumnChart, BarChart, AreaChart, PieChart
+- ✅ Record summary views (RecordView, read-only detail pages)
+- ✅ Header content layouts (HeaderContent, HeaderArea, ContentArea)
 - ✅ Standard display components: stamps, tags, progress bars, gauges, banners
 - ✅ Any interface where fields map to record type fields
 

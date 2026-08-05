@@ -420,6 +420,29 @@ function IssueSummary(props: { issue: RKITIssue }) {
 }
 ```
 
+### Example: Dashboard with KPIs and chart
+
+```tsx
+import { Dashboard, KPISection, KPICard, Section, LineChart } from "@appian/adk";
+
+function SalesDashboard() {
+  return (
+    <Dashboard title="Sales Overview">
+      <KPISection>
+        <KPICard label="Revenue" value="$1.2M" trend="+12%" icon="f155" />
+        <KPICard label="Orders" value="3,847" trend="+8%" icon="f07a" />
+        <KPICard label="Customers" value="1,204" trend="+3%" icon="f0c0" />
+      </KPISection>
+      <Section title="Monthly Trend">
+        <LineChart title="Revenue" categories={["Jan","Feb","Mar","Apr","May"]}
+          series={[{label: "2024", data: [800,900,950,1100,1200], color: "#1565C0"}]}
+          showLegend={true} />
+      </Section>
+    </Dashboard>
+  );
+}
+```
+
 ## Non-Obvious Behaviors
 
 ### Process model requirements
