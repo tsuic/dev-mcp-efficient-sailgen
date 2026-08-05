@@ -22,6 +22,7 @@
   - Process model node type discovery
   - Integration configuration loop
   - Complete data model creation
+- [scaffoldInterface (TSX → SAIL)](#scaffoldinterface-tsx--sail)
 - [Non-Obvious Behaviors](#non-obvious-behaviors)
   - Process model requirements
   - Record type relationships
@@ -323,6 +324,101 @@ When creating a data model with multiple record types, relationships, and sample
 ```
 
 This 15-step sequence ensures a complete, working data model with full bidirectional navigation.
+
+## scaffoldInterface (TSX → SAIL)
+
+`scaffoldInterface` creates interfaces from React-like TSX instead of raw SAIL. It handles field resolution, submit wiring, and dropdown choices automatically.
+
+### Parameters
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `name` | Yes | Interface name (e.g., `CM_CaseForm`) |
+| `appUuid` | Yes | Application UUID |
+| `tsx` | Yes | TSX source (import from `@appian/adk`, named function returning JSX) |
+| `recordTypeUuid` | No | Record type UUID — enables auto-resolution of all field and relationship references |
+| `description` | No | Interface description |
+| `inputs` | No | Override inferred inputs (rarely needed) |
+
+### What it auto-resolves (when `recordTypeUuid` provided):
+
+- `props.record.fieldName` → `ri!record['recordType!{uuid}Name.fields.{fieldUuid}fieldName']`
+- `props.record.relationship.map(t => ({label: t.field, value: t.id}))` → resolved `choiceLabels`/`choiceValues` with bracket notation
+- Submit button → `saveInto: { a!save(ri!record, local!record) }` for all mutable props
+- RecordGrid columns → `fv!row['recordType!{uuid}...']` with `a!recordLink` for link columns
+
+### Available TSX components:
+
+- **Layout:** Form, Wizard/WizardStep, HeaderContent (HeaderArea/ContentArea), Section, Columns/Column, Card, Box, SideBySide, Tabs/Tab
+- **Input:** TextField, ParagraphField, IntegerField, DecimalField, DateField, DateTimeField, BooleanCheckbox, Toggle, Dropdown, MultiDropdown, RadioButton, Checkbox, FileUpload
+- **Picker:** UserPicker, GroupPicker, RecordPicker
+- **Display:** Stamp, Tag, RichText/TextItem, Icon, Heading, ProgressBar, Gauge, Milestone, MessageBanner
+- **Grid:** RecordGrid/RecordGridColumn (record-backed with a!recordData)
+- **Action:** Button, RecordLink, SafeLink, DynamicLink
+- **Chart:** ColumnChart, BarChart, LineChart, AreaChart, PieChart
+
+### TSX rules:
+
+- Import components from `"@appian/adk"`
+- Declare a named function (not arrow export)
+- Type props with record type name (spaces removed): `props: { issue: RKITIssue }`
+- Bind fields: `value={props.issue.title}` + `onChange={(v) => props.issue.title = v}`
+- Use `showWhen` for conditional visibility (no conditional JSX / ternaries)
+- No React hooks, local state, or `Component.*` namespaces
+
+### When NOT to use scaffoldInterface:
+
+- `a!forEach` inside layouts (dynamic repetition)
+- Complex `if()`/`choose()` conditional rendering
+- Custom plugin components
+- Patterns outside the component set above
+
+### Example: Record grid with links and sorting
+
+```tsx
+import { Section, RecordGrid, RecordGridColumn } from "@appian/adk";
+
+function IssueList(props: { issues: RKITIssue }) {
+  return (
+    <Section title="All Issues">
+      <RecordGrid data={props.issues} pageSize={25} showSearch={true}
+        initialSort={{ field: "createdAt", ascending: false }}>
+        <RecordGridColumn field="title" label="Title" link={true} />
+        <RecordGridColumn field="status" label="Status" width="NARROW" />
+        <RecordGridColumn field="createdAt" label="Created" width="MEDIUM" />
+      </RecordGrid>
+    </Section>
+  );
+}
+```
+
+### Example: Header content layout (dashboard/summary)
+
+```tsx
+import { HeaderContent, HeaderArea, ContentArea, Columns, Column, RichText, TextItem, Stamp, Section, TextField } from "@appian/adk";
+
+function IssueSummary(props: { issue: RKITIssue }) {
+  return (
+    <HeaderContent backgroundColor="#2C3E50" backgroundStyle="DARK">
+      <HeaderArea>
+        <Columns>
+          <Column width="AUTO">
+            <RichText><TextItem text={props.issue.title} size="LARGE" bold={true} color="#FFFFFF" /></RichText>
+          </Column>
+          <Column width="NARROW">
+            <Stamp text="Open" backgroundColor="POSITIVE" size="TINY" />
+          </Column>
+        </Columns>
+      </HeaderArea>
+      <ContentArea>
+        <Section title="Details">
+          <TextField label="Description" value={props.issue.description} readOnly={true} />
+        </Section>
+      </ContentArea>
+    </HeaderContent>
+  );
+}
+```
 
 ## Non-Obvious Behaviors
 

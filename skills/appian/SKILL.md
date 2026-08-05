@@ -447,6 +447,30 @@ After completing Steps 1-6 verification, you have complete implementation knowle
 
 ---
 
+##### Step 7-PRE: Choose Interface Tool (Interfaces Only)
+
+**Before writing any interface code, decide which tool to use:**
+
+| Use `scaffoldInterface` (TSX) | Use `createInterface` (raw SAIL) |
+|---|---|
+| Forms/wizards bound to a record type | Dynamic `a!forEach` inside layouts |
+| Record grids with links and sorting | Complex `if()`/`choose()` conditional rendering |
+| Dropdowns with choices from related records | Custom plugin components |
+| Header content layouts (dashboards, summaries) | Patterns outside the TSX component set |
+| Standard display: stamps, tags, gauges, banners | Reusable fragments (no top-level layout) |
+
+**If you choose `scaffoldInterface`:**
+- Skip Steps 7A, 7B, 7C below — the tool handles SAIL generation, validation, and creation in one call
+- Write TSX (see `references/tools-mcp.md` → "scaffoldInterface" section for syntax and components)
+- Pass `recordTypeUuid` to auto-resolve all field and relationship bracket notation
+- Call `scaffoldInterface(name, appUuid, tsx, recordTypeUuid)` directly
+- Proceed to Step 7D (testInterface) if the interface has conditional rendering
+
+**If you choose `createInterface`:**
+- Continue to Step 7A below (write SAIL, validate, create)
+
+---
+
 ##### Step 7A: Generate SAIL Expression
 
 **For Expression Rules:**

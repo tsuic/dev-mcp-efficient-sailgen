@@ -1,5 +1,57 @@
 # Interfaces
 
+## Tool Selection: scaffoldInterface vs createInterface
+
+**DECIDE FIRST.** Before writing any interface code, choose your tool:
+
+### Use `scaffoldInterface` (TSX → SAIL) when:
+- ✅ Forms or wizards bound to a record type
+- ✅ Record grids showing data with links, sorting, pagination
+- ✅ Dropdowns with choices from related records
+- ✅ Header content layouts (dashboards, summary views)
+- ✅ Standard display components: stamps, tags, progress bars, gauges, banners
+- ✅ Any interface where fields map to record type fields
+
+**Key advantages:**
+- Pass `recordTypeUuid` → all field bracket notation auto-resolved (no manual `'recordType!{uuid}...'`)
+- Submit buttons auto-wire `saveInto` for all bound fields
+- Dropdown `.map()` pattern auto-resolves relationship fields for choiceLabels/choiceValues
+- TypeScript validates your component usage at compile time (instant error feedback)
+- No `validateExpression` step needed — TSX handles validation
+
+### Use `createInterface` (raw SAIL) when:
+- Dynamic column generation (`a!forEach` inside `columns:`)
+- Computed data series for charts with runtime transformations
+- Complex conditional layouts with deeply nested `if()` / `choose()` branches
+- Patterns not in the TSX component set (custom plugin components)
+- Reusable fragments (no top-level layout)
+
+### scaffoldInterface Example (record-bound form):
+```tsx
+import { Form, Section, TextField, Dropdown, DateField } from "@appian/adk";
+
+function CaseForm(props: { case: CMCase }) {
+  return (
+    <Form title="New Case">
+      <Section title="Details">
+        <TextField label="Title" value={props.case.title}
+          onChange={(v) => props.case.title = v} required={true} />
+        <Dropdown label="Priority" value={props.case.priorityId}
+          onChange={(v) => props.case.priorityId = v}
+          options={props.case.priority.map(p => ({ label: p.label, value: p.id }))} />
+        <DateField label="Due Date" value={props.case.dueDate}
+          onChange={(v) => props.case.dueDate = v} />
+      </Section>
+    </Form>
+  );
+}
+```
+Call: `scaffoldInterface(name: "CM_CaseForm", appUuid: "...", tsx: above, recordTypeUuid: "case-rt-uuid")`
+
+Result: Fully resolved SAIL with bracket notation, saveInto, dropdown choices — no manual wiring needed.
+
+---
+
 ## Create JSON Schema
 
 ```json
