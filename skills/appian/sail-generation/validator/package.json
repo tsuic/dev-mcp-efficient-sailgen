@@ -1,0 +1,20 @@
+{
+  "name": "sail-validator",
+  "version": "1.0.0",
+  "description": "Programmatic validator for Appian SAIL expression files",
+  "type": "module",
+  "main": "dist/sail-validator.js",
+  "bin": {
+    "sail-validate": "dist/sail-validator.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node test/run-tests.mjs",
+    "validate": "node dist/sail-validator.js",
+    "validate:json": "node dist/sail-validator.js --json"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0"
+  }
+}

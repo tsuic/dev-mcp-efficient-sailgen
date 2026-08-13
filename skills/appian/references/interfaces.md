@@ -593,15 +593,12 @@ a!localVariables(
 ## Operation Sequence
 
 **Creating with inputs and expression:**
-1. Generate SAIL expression (complete Steps 1-6 from SKILL.md)
-2. **Validate expression BEFORE creating** (Step 7B - validation checkpoint):
-   - Call `validateExpression` MCP tool with generated SAIL
-   - If validation fails → Fix errors and retry (up to 3 attempts)
-   - Load `references/validation-checkpoint.md` for complete retry workflow
-3. **Only after validation passes** → Call `createInterface` with:
-   - `inputs` array (interface parameters)
-   - `expression` (validated SAIL expression)
-   - Expression references inputs via `ri!` prefix matching input names
+
+Use the SAIL generation pipeline (`sail-generation/`) which handles definition,
+scaffolding, and local validation automatically. Then call `createInterface` with:
+- `expressionFilePath` pointing to the generated `.sail` file
+- `inputs` array (interface parameters)
+- `name` following naming conventions above
 
 **Updating an existing interface:**
 1. Get the interface to see current state

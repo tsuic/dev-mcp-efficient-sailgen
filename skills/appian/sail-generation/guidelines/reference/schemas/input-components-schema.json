@@ -1,0 +1,619 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "SAIL Input Components - Form fields and user input components",
+  "version": "2.5.0",
+
+  "sharedParameters": {
+    "allInputFields": {
+      "description": "Parameters common to all input field components",
+      "label": {
+        "type": "Text",
+        "description": "Text to display as the field label"
+      },
+      "labelPosition": {
+        "type": "Text",
+        "validValues": ["ABOVE", "ADJACENT", "JUSTIFIED", "COLLAPSED"],
+        "default": "ABOVE"
+      },
+      "instructions": {
+        "type": "Text",
+        "description": "Supplemental text about this field (displayed below input)"
+      },
+      "helpTooltip": {
+        "type": "Text",
+        "description": "Displays a help icon with the specified text as a tooltip (max 500 characters)"
+      },
+      "placeholder": {
+        "type": "Text",
+        "description": "Text to display in the field when it is empty. Avoid using for instructions. Use to show expected input format, example values.",
+        "note": "Not available for: dateField, dateTimeField"
+      },
+      "required": {
+        "type": "Boolean",
+        "default": false
+      },
+      "requiredMessage": {
+        "type": "Text",
+        "description": "Custom error message to display when the field's value is required and not provided"
+      },
+      "readOnly": {
+        "type": "Boolean",
+        "default": false,
+        "description": "Determines if the field should display as not editable"
+      },
+      "disabled": {
+        "type": "Boolean",
+        "default": false,
+        "description": "Determines if the field should display as potentially editable but grayed out"
+      },
+      "value": {
+        "type": "Any Type",
+        "description": "Value displayed in the field (type varies by component)"
+      },
+      "saveInto": {
+        "type": "List of Save",
+        "description": "One or more variables that are updated when the user changes the value"
+      },
+      "validations": {
+        "type": "List of Text",
+        "description": "Validation errors to display below the field when the value is not null"
+      },
+      "validationGroup": {
+        "type": "Text",
+        "description": "When specified, field requiredness is evaluated only when a button in the same group is pressed"
+      },
+      "accessibilityText": {
+        "type": "Text",
+        "description": "Additional text to be announced by screen readers"
+      },
+      "showWhen": {
+        "type": "Boolean",
+        "default": true,
+        "description": "Determines whether the component is displayed on the interface"
+      },
+      "marginAbove": {
+        "type": "Text",
+        "validValues": ["NONE", "EVEN_LESS", "LESS", "STANDARD", "MORE", "EVEN_MORE"]
+      },
+      "marginBelow": {
+        "type": "Text",
+        "validValues": ["NONE", "EVEN_LESS", "LESS", "STANDARD", "MORE", "EVEN_MORE"]
+      }
+    },
+
+    "textInputFields": {
+      "description": "Additional parameters for text-based input fields (textField, paragraphField, integerField, floatingPointField)",
+      "inherits": "allInputFields",
+      "refreshAfter": {
+        "type": "Text",
+        "validValues": ["KEYPRESS", "UNFOCUS"],
+        "default": "UNFOCUS"
+      },
+      "align": {
+        "type": "Text",
+        "validValues": ["LEFT", "CENTER", "RIGHT"],
+        "description": "Alignment of text within the field"
+      },
+      "masked": {
+        "type": "Boolean",
+        "default": false,
+        "description": "Determines if the value is obscured from view"
+      }
+    },
+
+    "choiceFields": {
+      "description": "Parameters for choice-based input fields (dropdown, radio, checkbox)",
+      "inherits": "allInputFields",
+      "choiceLabels": {
+        "type": "List of Variant",
+        "description": "Array of options for the user to select"
+      },
+      "choiceValues": {
+        "type": "List of Variant",
+        "description": "Array of values associated with the corresponding choices",
+        "validation": "cannot be null or empty strings"
+      },
+      "data": {
+        "type": "Any",
+        "description": "The record type used as the source of the component's choices"
+      },
+      "sort": {
+        "type": "List of SortInfo",
+        "description": "Array of Sort Info configurations created with a!sortInfo()"
+      }
+    }
+  },
+
+  "components": {
+    "a!textField": {
+      "category": "input",
+      "inherits": ["allInputFields", "textInputFields"],
+      "parameters": {
+        "inputPurpose": {
+          "type": "Text",
+          "validValues": ["NAME", "EMAIL", "PHONE_NUMBER", "STREET_ADDRESS", "POSTAL_CODE", "CREDIT_CARD_NUMBER", "OFF"]
+        },
+        "characterLimit": {
+          "type": "Integer",
+          "description": "Maximum character count allowed"
+        },
+        "showCharacterCount": {
+          "type": "Boolean",
+          "default": true,
+          "description": "Displays character count when characterLimit is set"
+        }
+      },
+      "description": "Single line text input"
+    },
+
+    "a!paragraphField": {
+      "category": "input",
+      "inherits": ["allInputFields"],
+      "parameters": {
+        "height": {
+          "type": "Text",
+          "validValues": ["SHORT", "MEDIUM", "TALL"],
+          "default": "MEDIUM"
+        },
+        "characterLimit": {
+          "type": "Integer"
+        },
+        "showCharacterCount": {
+          "type": "Boolean",
+          "default": true
+        },
+        "refreshAfter": {
+          "type": "Text",
+          "validValues": ["KEYPRESS", "UNFOCUS"],
+          "default": "UNFOCUS"
+        }
+      },
+      "description": "Multi-line text input"
+    },
+
+    "a!styledTextEditorField": {
+      "category": "input",
+      "inherits": ["allInputFields"],
+      "parameters": {
+        "height": {
+          "type": "Text",
+          "validValues": ["EXTRA_SHORT", "SHORT", "SHORT_PLUS", "MEDIUM", "MEDIUM_PLUS", "TALL", "TALL_PLUS", "EXTRA_TALL"],
+          "default": "MEDIUM"
+        },
+        "sizeLimit": {
+          "type": "Integer",
+          "description": "Size limit in bytes (should match database field length)"
+        },
+        "refreshAfter": {
+          "type": "Text",
+          "validValues": ["KEYPRESS", "UNFOCUS"],
+          "default": "UNFOCUS",
+          "description": "Determines when the saveInto expression is evaluated. When set to \"UNFOCUS\" (default), the expression evaluates when the user deselects the field after changing its value. When set to \"KEYPRESS\", the expression evaluates after every character typed into the field."
+        },
+        "allowedFormats": {
+          "type": "List of Text",
+          "validValues": ["BOLD", "ITALIC", "UNDERLINE", "STRIKETHROUGH", "SUBSCRIPT", "SUPERSCRIPT", "LINK", "TEXT_ALIGNMENT", "NUMBERED_LIST", "BULLETED_LIST", "TABLE"],
+          "default": ["BOLD", "ITALIC", "UNDERLINE", "STRIKETHROUGH", "LINK", "NUMBERED_LIST", "BULLETED_LIST"]
+        }
+      },
+      "description": "Rich text input with formatting toolbar - stores text with HTML formatting",
+      "specialNote": "To display styled text editor values in read-only mode, use a!styledTextEditorField with readOnly: true (NOT richTextDisplayField). For grid display, use stripHtml() on a separate database field."
+    },
+
+    "a!integerField": {
+      "category": "input",
+      "inherits": ["allInputFields", "textInputFields"],
+      "parameters": {},
+      "description": "Integer number input"
+    },
+
+    "a!floatingPointField": {
+      "category": "input",
+      "inherits": ["allInputFields", "textInputFields"],
+      "parameters": {},
+      "description": "Decimal number input"
+    },
+
+    "a!dateField": {
+      "category": "input",
+      "inherits": ["allInputFields"],
+      "excludedParameters": ["placeholder"],
+      "parameters": {
+        "align": {
+          "type": "Text",
+          "validValues": ["LEFT", "CENTER", "RIGHT"]
+        }
+      },
+      "description": "Date input (year, month, day)"
+    },
+
+    "a!dateTimeField": {
+      "category": "input",
+      "inherits": ["allInputFields"],
+      "excludedParameters": ["placeholder"],
+      "parameters": {},
+      "description": "Date and time input (year, month, day, hour, minute, second)"
+    },
+
+    "a!timeField": {
+      "category": "input",
+      "inherits": ["allInputFields"],
+      "parameters": {},
+      "description": "Time input (hour, minute, second)"
+    },
+
+    "a!dropdownField": {
+      "category": "input",
+      "inherits": ["allInputFields", "choiceFields"],
+      "excludedParameters": ["readOnly"],
+      "parameters": {
+        "searchDisplay": {
+          "type": "Text",
+          "validValues": ["AUTO", "ON", "OFF"]
+        }
+      },
+      "description": "Single selection dropdown"
+    },
+
+    "a!radioButtonField": {
+      "category": "input",
+      "inherits": ["allInputFields", "choiceFields"],
+      "excludedParameters": ["readOnly", "placeholder"],
+      "parameters": {
+        "choiceLayout": {
+          "type": "Text",
+          "validValues": ["STACKED", "COMPACT"],
+          "default": "STACKED"
+        },
+        "choiceStyle": {
+          "type": "Text",
+          "validValues": ["STANDARD", "CARDS"],
+          "default": "STANDARD"
+        },
+        "spacing": {
+          "type": "Text",
+          "validValues": ["STANDARD", "MORE", "EVEN_MORE"]
+        }
+      },
+      "description": "Single selection radio buttons"
+    },
+
+    "a!checkboxField": {
+      "category": "input",
+      "inherits": ["allInputFields", "choiceFields"],
+      "excludedParameters": ["placeholder"],
+      "parameters": {
+        "value": {
+          "type": "List of Variant",
+          "description": "Values of choices to display as selected (overrides inherited value parameter)"
+        },
+        "align": {
+          "type": "Text",
+          "validValues": ["LEFT", "CENTER", "RIGHT"]
+        },
+        "choiceLayout": {
+          "type": "Text",
+          "validValues": ["STACKED", "COMPACT"],
+          "default": "STACKED"
+        },
+        "choiceStyle": {
+          "type": "Text",
+          "validValues": ["STANDARD", "CARDS"],
+          "default": "STANDARD"
+        },
+        "spacing": {
+          "type": "Text",
+          "validValues": ["STANDARD", "MORE", "EVEN_MORE"]
+        }
+      },
+      "description": "Multiple selection checkboxes"
+    },
+
+    "a!barcodeField": {
+      "category": "input",
+      "inherits": ["allInputFields"],
+      "parameters": {
+        "refreshAfter": {
+          "type": "Text",
+          "validValues": ["KEYPRESS", "UNFOCUS"],
+          "default": "UNFOCUS"
+        },
+        "align": {
+          "type": "Text",
+          "validValues": ["LEFT", "CENTER", "RIGHT"]
+        }
+      },
+      "description": "Displays and allows entry of a barcode value"
+    },
+
+    "a!pickerFieldUsers": {
+      "category": "input",
+      "inherits": ["allInputFields"],
+      "parameters": {
+        "value": {
+          "type": "List of Username",
+          "description": "Array of currently selected users"
+        },
+        "maxSelections": {
+          "type": "Integer"
+        },
+        "groupFilter": {
+          "type": "Group",
+          "description": "When present, only users who are members of this group are suggested"
+        }
+      },
+      "description": "Selects one or more users"
+    },
+
+    "a!pickerFieldGroups": {
+      "category": "input",
+      "inherits": ["allInputFields"],
+      "parameters": {
+        "value": {
+          "type": "List of Group"
+        },
+        "maxSelections": {
+          "type": "Integer"
+        },
+        "groupFilter": {
+          "type": "Group"
+        }
+      },
+      "description": "Selects one or more groups"
+    },
+
+    "a!pickerFieldUsersAndGroups": {
+      "category": "input",
+      "inherits": ["allInputFields"],
+      "parameters": {
+        "value": {
+          "type": "List of User or Group"
+        },
+        "maxSelections": {
+          "type": "Integer"
+        },
+        "groupFilter": {
+          "type": "Group"
+        }
+      },
+      "description": "Selects one or more users or groups"
+    },
+
+    "a!cardChoiceField": {
+      "category": "input",
+      "inherits": ["allInputFields"],
+      "parameters": {
+        "data": {
+          "type": "List of Variant",
+          "description": "Array of options using a!map(). Each map must contain 'id' field and fields matching cardTemplate parameter names (e.g., primaryText, secondaryText)."
+        },
+        "cardTemplate": {
+          "type": "Any Type",
+          "description": "Card layout function: a!cardTemplateTile(id, primaryText, secondaryText), a!cardTemplateBarTextStacked(id, primaryText, secondaryText, icon), or a!cardTemplateBarTextJustified(id, primaryText, secondaryText, icon). CRITICAL: primaryText and secondaryText accept ONLY plain Text strings, NOT a!richTextItem() or richText. Correct: primaryText: fv!data.name. Wrong: primaryText: a!richTextItem(text: fv!data.name).",
+          "validFunctions": ["a!cardTemplateTile", "a!cardTemplateBarTextStacked", "a!cardTemplateBarTextJustified"]
+        },
+        "value": {
+          "type": "List of Variant",
+          "description": "Currently selected card ID(s). Array for multiple selections."
+        },
+        "maxSelections": {
+          "type": "Integer",
+          "description": "Maximum number of cards that can be selected. Use 1 for radio-button behavior (single selection), >1 for checkbox behavior (multi-select)."
+        },
+        "spacing": {
+          "type": "Text",
+          "validValues": ["STANDARD", "NONE", "DENSE", "SPARSE"],
+          "description": "Space between cards"
+        },
+        "align": {
+          "type": "Text",
+          "validValues": ["START", "CENTER", "END"],
+          "description": "Horizontal alignment of cards"
+        }
+      },
+      "description": "Selection displayed as styled cards using built-in templates. Use this when cards only need text + optional icon with identical structure. For complex cards (stamps, tags, custom styling, conditional elements), use Custom Card Choice Pattern (a!cardLayout + a!dynamicLink) instead.",
+      "specialNote": "Card template functions ONLY accept plain Text strings for text parameters. Common error: using a!richTextItem() for primaryText/secondaryText (invalid). a!cardTemplateTile does NOT support 'icon' or 'iconColor' parameters - only id, primaryText, secondaryText are valid."
+    },
+
+    "a!fileUploadField": {
+      "category": "input",
+      "inherits": ["allInputFields"],
+      "parameters": {
+        "target": {
+          "type": "Document/Folder",
+          "description": "Document or Folder where files will be stored"
+        },
+        "value": {
+          "type": "List of Document"
+        },
+        "fileNames": {
+          "type": "Text",
+          "description": "Text expression with fv! variables"
+        },
+        "fileDescriptions": {
+          "type": "Text",
+          "description": "Text expression with fv! variables"
+        },
+        "maxSelections": {
+          "type": "Integer"
+        },
+        "buttonStyle": {
+          "type": "Text",
+          "validValues": ["NORMAL", "PRIMARY", "SECONDARY", "LINK"]
+        },
+        "buttonDisplay": {
+          "type": "Text",
+          "validValues": ["LABEL", "ICON", "LABEL_AND_ICON"]
+        },
+        "buttonSize": {
+          "type": "Text",
+          "validValues": ["SMALL", "STANDARD", "LARGE"]
+        },
+        "uploadMethods": {
+          "type": "List of Text",
+          "validValues": ["SIGNATURE", "CAMERA", "CHOOSE_PHOTO", "CHOOSE_FILE"],
+          "description": "Available upload methods on mobile devices"
+        },
+        "showVirusScanMessage": {
+          "type": "Boolean"
+        }
+      },
+      "description": "File upload with document management"
+    },
+
+    "a!booleanCheckboxField": {
+      "category": "input",
+      "parameters": {
+        "choiceLabel": {
+          "type": "Text",
+          "description": "Text to display as the label next to the checkbox"
+        },
+        "helpTooltip": {
+          "type": "Text",
+          "description": "Displays a help icon next to the choice label with the specified text as a tooltip (max 500 characters)"
+        },
+        "value": {
+          "type": "Boolean",
+          "description": "Determines if the checkbox is selected. Selected when true, unselected when false or null."
+        },
+        "saveInto": {
+          "type": "List of Save",
+          "description": "One or more variables updated with the value when a user selects or deselects the checkbox. Use a!save() to save a modified or alternative value."
+        },
+        "showWhen": {
+          "type": "Boolean",
+          "default": true,
+          "description": "Determines whether the component is displayed on the interface"
+        },
+        "required": {
+          "type": "Boolean",
+          "default": false,
+          "description": "Determines if the checkbox must be selected to submit the form. If true, a validation message displays when the value is false or null."
+        },
+        "requiredMessage": {
+          "type": "Text",
+          "description": "Custom message to display when the checkbox is required and not selected. Default: 'Select the checkbox to continue'."
+        },
+        "validations": {
+          "type": "List of Text",
+          "description": "Validation errors to display below the field when the value is not null"
+        },
+        "validationGroup": {
+          "type": "Text",
+          "description": "When specified, validations are only evaluated when a button in the same group is pressed"
+        },
+        "disabled": {
+          "type": "Boolean",
+          "default": false,
+          "description": "Determines if the field should display as potentially editable but grayed out"
+        },
+        "accessibilityText": {
+          "type": "Text",
+          "description": "Additional text to be announced by screen readers"
+        },
+        "marginAbove": {
+          "type": "Text",
+          "validValues": ["NONE", "EVEN_LESS", "LESS", "STANDARD", "MORE", "EVEN_MORE"],
+          "default": "NONE"
+        },
+        "marginBelow": {
+          "type": "Text",
+          "validValues": ["NONE", "EVEN_LESS", "LESS", "STANDARD", "MORE", "EVEN_MORE"],
+          "default": "STANDARD"
+        },
+        "choicePosition": {
+          "type": "Text",
+          "validValues": ["START", "END"],
+          "default": "START",
+          "description": "Determines whether the checkbox appears on the left or right of the choice label"
+        }
+      },
+      "description": "Displays a single checkbox that saves a true or false value.",
+      "specialNote": "Unlike a!checkboxField which uses choiceLabels/choiceValues arrays, this component uses a single choiceLabel parameter and saves a Boolean value directly. ⚠️ Does NOT have 'label' or 'labelPosition' parameters — use 'choiceLabel' for the display text and 'choicePosition' for placement."
+    },
+
+    "a!toggleField": {
+      "category": "input",
+      "parameters": {
+        "choiceLabel": {
+          "type": "Text",
+          "description": "Text to display as the label next to the toggle"
+        },
+        "helpTooltip": {
+          "type": "Text",
+          "description": "Displays a help icon next to the choice label with the specified text as a tooltip (max 500 characters)"
+        },
+        "value": {
+          "type": "Boolean",
+          "description": "Determines if the toggle is on or off. The toggle appears on when true, and off when false or null."
+        },
+        "saveInto": {
+          "type": "List of Save",
+          "description": "One or more variables updated with the value when a user turns the toggle on or off. Use a!save() to save a modified or alternative value."
+        },
+        "showWhen": {
+          "type": "Boolean",
+          "default": true,
+          "description": "Determines whether the component is displayed on the interface"
+        },
+        "required": {
+          "type": "Boolean",
+          "default": false,
+          "description": "Determines if the toggle value must be true to submit the form. If true, a validation message displays when the value is false or null."
+        },
+        "requiredMessage": {
+          "type": "Text",
+          "description": "Custom message to display when required is true but the value is false or null. Default: 'Enable the toggle to continue'."
+        },
+        "validations": {
+          "type": "List of Text",
+          "description": "Validation errors to display below the field when the value is not null"
+        },
+        "validationGroup": {
+          "type": "Text",
+          "description": "When specified, validations are only evaluated when a button in the same group is pressed"
+        },
+        "disabled": {
+          "type": "Boolean",
+          "default": false,
+          "description": "Determines if the field should display as potentially editable but grayed out"
+        },
+        "accessibilityText": {
+          "type": "Text",
+          "description": "Additional text to be announced by screen readers"
+        },
+        "marginAbove": {
+          "type": "Text",
+          "validValues": ["NONE", "EVEN_LESS", "LESS", "STANDARD", "MORE", "EVEN_MORE"],
+          "default": "NONE"
+        },
+        "marginBelow": {
+          "type": "Text",
+          "validValues": ["NONE", "EVEN_LESS", "LESS", "STANDARD", "MORE", "EVEN_MORE"],
+          "default": "STANDARD"
+        },
+        "choicePosition": {
+          "type": "Text",
+          "validValues": ["START", "END"],
+          "default": "START",
+          "description": "Determines whether the toggle appears on the left or right of the choice label"
+        }
+      },
+      "description": "Displays a toggle that saves a true or false value.",
+      "specialNote": "Unlike a!checkboxField which uses choiceLabels/choiceValues arrays, this component uses a single choiceLabel parameter and saves a Boolean value directly. ⚠️ Does NOT have 'label' or 'labelPosition' parameters — use 'choiceLabel' for the display text and 'choicePosition' for placement."
+    },
+
+    "a!encryptedTextField": {
+      "category": "input",
+      "inherits": ["allInputFields"],
+      "excludedParameters": ["placeholder"],
+      "parameters": {
+        "value": {
+          "type": "Encrypted Text"
+        }
+      },
+      "specialNote": "Returns Encrypted Text type which CANNOT be compared, concatenated, or used in expressions. NOT compatible with synced record types - use a!textField with warning banner instead",
+      "description": "Encrypted text input field"
+    }
+  }
+}

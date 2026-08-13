@@ -20,6 +20,12 @@ skills/
       process-models.md       ← Nodes, variables, start forms, flow patterns
       sail.md                 ← Components, layouts, data binding, grids
       ...                     ← Additional reference files
+    sail-generation/          ← Script-driven SAIL generation pipeline
+      generator/              ← Node.js scripts (define, scaffold, resolve-icons)
+      validator/              ← Local SAIL validator (TypeScript, pre-compiled)
+      agents/                 ← 14 specialist agent instructions
+      guidelines/             ← Logic patterns, JSON schemas, icon aliases
+      validate.sh             ← Shell wrapper for the validator
 ```
 
 The skill has a single entry point (`SKILL.md`) with a resource reference map that tells the assistant which reference file to load for any given task. Reference files contain domain knowledge — schemas, conventions, patterns, and pitfalls — without tool-specific syntax.

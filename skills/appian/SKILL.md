@@ -155,7 +155,6 @@ Load the relevant reference(s) for your task:
 |---|---|
 | You need usage patterns for the Appian MCP tools | `references/tools-mcp.md` |
 | **Deleting or updating ANY Appian object (MANDATORY - see Deletion Operations section above)** | `references/confirmation-patterns.md` |
-| Validating SAIL expressions before creating interfaces or expression rules (Step 7B - MANDATORY for all interface/rule creation) | `references/validation-checkpoint.md` |
 | Writing any expression or expression rule (ALWAYS load core pattern files) | `references/function-reference.md`, `references/null-safety-patterns.md`, `references/short-circuit-patterns.md` |
 | Using Appian functions, operators, or type conversions in expressions | `references/function-reference.md`, `references/null-safety-patterns.md` |
 | Need detailed array, date/time, match, or forEach patterns | `references/function-patterns-index.md` (loads pattern files on demand) |
@@ -188,7 +187,7 @@ Load the relevant reference(s) for your task:
 | Configuring record events, writing events in process models, displaying event history in interfaces, or enabling process mining (Process HQ). Requirements mention: auditing, activity log, event history, tracking changes, collaboration on records, process mining. | `references/record-events.md` |
 | Building a dashboard, form layout, or summary view | `references/ui-patterns.md` |
 | Dashboard with KPI cards, list cards, message banners, or tabs | Load architectural pattern from `ui-patterns.md` PLUS component examples from `patterns/` directory (see Step 3 for which pattern files to load) |
-| Creating any interface (final validation before writing SAIL code) | `references/interface-generation-checklist.md` (lightweight 10-point checklist - loaded at Step 6) |
+| Creating any interface (use the SAIL generation pipeline) | `sail-generation/` pipeline (see `.kiro/steering/sail-generation.md`) |
 | Need to look up a specific SAIL component's parameters | `references/component-reference.md` |
 | Auditing interfaces for accessibility, fixing accessibility defects, or building accessible interfaces (WCAG compliance) | `references/accessibility-audit.md`, `references/component-checks.md`, `references/accessibility-reference.md` |
 
@@ -204,7 +203,6 @@ Load: references/function-reference.md
 Load: references/component-reference.md
 Load: references/null-safety-patterns.md
 Load: references/short-circuit-patterns.md
-Load: references/sail-verification-checkpoint.md
 ```
 
 These cover universal patterns across all Appian tasks:
@@ -214,7 +212,6 @@ These cover universal patterns across all Appian tasks:
 - `component-reference.md`: SAIL component catalog, anti-hallucination list, signatures for interfaces (ALWAYS)
 - `null-safety-patterns.md`: Null handling, functions that reject null, standard safety patterns (ALWAYS)
 - `short-circuit-patterns.md`: Nested if() patterns for safe conditional evaluation (ALWAYS)
-- `sail-verification-checkpoint.md`: **MANDATORY checkpoint for verifying function and component existence before code generation** (ALWAYS)
 
 **Non-negotiable for all Appian work.**
 
@@ -222,7 +219,7 @@ These cover universal patterns across all Appian tasks:
 - Expression rules need functions (logic)
 - Interfaces need components (UX) AND functions (logic in saveInto, validation, data transformation)
 - Loading both ensures you have complete coverage for any Appian development task
-- Both contain anti-hallucination lists checked in sail-verification-checkpoint.md (Step 4)
+- Both contain anti-hallucination lists to prevent fabricating non-existent functions/components
 
 **For detailed patterns (load on demand):**
 - Need detailed array/date/match/forEach patterns → Load `references/function-patterns-index.md` for navigation
@@ -275,285 +272,45 @@ Use the Resource Reference Map above to identify which reference file matches yo
 
 ---
 
-### Step 4: [MANDATORY CHECKPOINT] Verify Functions & Components
+### Step 4: Generate Interface (SAIL Generation Pipeline)
 
-🛑 **STOP. Follow the SAIL Verification Checkpoint now.**
+**For interface creation, use the script-driven SAIL generation pipeline.**
 
-🚫 **BLOCKING REQUIREMENT:** You MUST output verification artifacts before proceeding to Step 5.
+The pipeline generates structurally-correct SAIL from JSON design decisions.
+The LLM writes a definition; Node.js scripts render the SAIL deterministically.
+No manual function/component verification needed — the local validator catches errors.
 
-**Action:** Open and complete `references/sail-verification-checkpoint.md`
+**Pipeline location:** `sail-generation/`
+**Orchestrator instructions:** `.kiro/steering/sail-generation.md` (auto-included)
 
-**Requirements:**
-- **Expression rules:** Complete Step 4A only (verify functions)
-- **Interfaces:** Complete BOTH Step 4A (verify functions) AND Step 4B (verify components)
+**Flow:**
+1. Classify the UI request (form, wizard, grid, dashboard, record-view, pane, layout, component)
+2. Dispatch specialist sub-agent → writes JSON definition → scripts scaffold SAIL → local validator checks it
+3. Icon resolution pass
+4. Deploy: `createInterface(expressionFilePath: ".../output/{uuid}/{slug}.sail")`
 
-**What this prevents:**
-- ❌ Using non-existent functions (regexmatch, property, a!dateTimeValue)
-- ❌ Using non-existent components (a!richTextEditor)
-- ❌ Missing critical warnings (showSearchBox only works with recordType! data)
-- ❌ Fabricating parameters or signatures
-
-**The checkpoint document contains:**
-- Complete verification workflows with copy-paste bash commands
-- Anti-hallucination list checks
-- Tier 2A/2B verification procedures (functions.json lookups)
-- Instruction file loading guidance
-- Exit checklists for both Step 4A and Step 4B
-
-**⚠️ If you proceed to Step 5 without outputting verification artifacts, STOP and return to Step 4.**
+Load `references/interfaces.md` for naming conventions when calling `createInterface`.
 
 ---
 
-**REQUIRED OUTPUT (Before Step 5):**
+### Step 4 (Expression Rules only): Write and Validate
 
-For expression rules, output:
-```
-=== STEP 4A VERIFICATION COMPLETE ===
-Functions to verify: [list actual function names]
-Anti-hallucination check: ✅ (checked lines X-Y of function-reference.md)
-Functions on NO-EXIST list found: [count or "none"]
-Tier 2A verification: ✅ [count] functions | ⚠️ curl failed - fallback: checked function-reference.md
-Functions verified as existing: [count]/[total]
-Non-existent functions removed: [count or "none"]
-Ready to proceed: YES
-```
+For **expression rules** (logic, not UI), hand-writing remains appropriate:
 
-For interfaces, output BOTH:
-```
-=== STEP 4A VERIFICATION COMPLETE ===
-Functions to verify: [list actual function names]
-Anti-hallucination check: ✅ (checked lines X-Y of function-reference.md)
-Functions on NO-EXIST list found: [count or "none"]
-Tier 2A verification: ✅ [count] functions | ⚠️ curl failed - fallback: checked function-reference.md
-Functions verified as existing: [count]/[total]
-Non-existent functions removed: [count or "none"]
-Ready to proceed: YES
-
-=== STEP 4B VERIFICATION COMPLETE ===
-Components to verify: [list actual component names]
-Registry check: ✅ (all exist=true)
-Components with instruction files:
-  - [component] → [file path] ✅ loaded
-  - [component] → [file path] ✅ loaded
-Critical warnings noted:
-  1. [direct quote from instruction file]
-  2. [direct quote from instruction file]
-Tier 2B verification: ✅ [count] components | skipped (all have instruction files)
-Non-existent components removed: [count or "none"]
-Ready to proceed: YES
-```
-
-🔍 **Verification Evidence Required:**
-- List the actual functions/components being verified (not just counts)
-- Show which instruction files were loaded (file paths)
-- Note any failures or fallbacks (curl errors, missing files)
-- Record any items removed due to non-existence
-- Quote critical warnings directly from loaded instruction files
-
-❌ **Invalid completion examples:**
-- Generic counts without showing the list
-- "✅" without showing what was checked
-- "All passed" without evidence
-- Placeholders like [count] or [list] left unfilled in output
-
-🚫 **BLOCKING GATE: Cannot proceed to Step 5 without outputting verification artifacts above.**
-
-**Self-Check Before Proceeding:**
-- [ ] Did I output "=== STEP 4A VERIFICATION COMPLETE ===" with actual function list?
-- [ ] Did I output "=== STEP 4B VERIFICATION COMPLETE ===" with actual component list? (interfaces only)
-- [ ] Did I list instruction files that were loaded with file paths?
-- [ ] Did I quote at least one critical warning from loaded instruction files? (interfaces only)
-
-**If any checkbox is ❌, return to Step 4 and complete verification.**
+1. Generate the expression body as a string
+2. Ensure all `ri!` references match input parameter names
+3. Apply null safety patterns from `null-safety-patterns.md`
+4. Use verified functions from `function-reference.md`
+5. Call `createExpressionRule` with the expression
 
 ---
 
-#### Step 5: Load Supplementary References
+#### Step 5: Load Supplementary References (as needed)
 
-🔍 **Step 5 Entry Guard:**
-
-Before loading supplementary references, confirm:
-- [ ] Step 4A completion artifact was output in this conversation ✅
-- [ ] Step 4B completion artifact was output in this conversation ✅ (interfaces only)
-- [ ] Artifact includes actual function/component lists (not placeholders)
-- [ ] At least one instruction file was loaded for interfaces (if components have them)
-
-If any ❌, return to Step 4.
-Based on what you discover in Steps 2-4, load additional references:
+Based on what you discover in Steps 2-3, load additional references:
 - Field type constraints → `references/field-types.md`
 - Security configuration → `references/security.md`
 - Multi-object tasks → `references/change-planning.md`
-
-#### Step 6: Final Pre-Implementation Verification
-
-**Complete these actions before writing code:**
-
-**For Expression Rules:**
-1. **Verify functions** (already completed in Step 4)
-   - Confirmed: anti-hallucination list checked, unknown functions looked up via Tier 2A
-2. **Apply null safety patterns**
-   - Use patterns from null-safety-patterns.md
-   - Guard all operations: `if(a!isNullOrEmpty(value), default, operation)`
-3. **Verify type handling**
-   - Know input types (from rule parameters) and output type (return value)
-   - Use explicit casting where needed (tointeger(), todecimal(), totext())
-
-**For Interfaces:**
-1. **Load interface generation checklist** (Quick validation before writing SAIL)
-   ```
-   Load: references/interface-generation-checklist.md
-   ```
-   - 10-point checklist covering: reference loading, data source clarity, chart patterns, layout hierarchy, component parameters, null safety, function variables, anti-patterns
-   - Decision trees for chart data approach, pie chart pattern, layout selection
-   - Takes 5-10 minutes to complete
-   - **Critical for catching errors before calling MCP tools**
-
-2. **Complete checklist items:**
-   - Reference loading complete (Steps 1-4)
-   - Data source clarity (mockup vs record data)
-   - Chart patterns verified (correct approach chosen)
-   - Layout hierarchy valid (no orphans, correct widths)
-   - Component parameters exist (no fabrications)
-   - Null safety applied throughout
-   - Function variables correct (fv!item, local!)
-   - Query structure valid (if using record data)
-   - Anti-patterns avoided (checked non-existent list)
-
-3. **Confirm readiness:**
-   - If ALL checklist items pass → Proceed to Step 7
-   - If ANY item fails → Stop and resolve before proceeding
-
-**For Both:**
-- **References loaded:** All 7 universal patterns (Step 1) + primary domain reference (Step 2) + UI patterns if applicable (Step 3)
-- **Domain knowledge ready:** Naming conventions, dependency order, mandatory relationships
-- **UUIDs available:** From environment (via list/get operations), not fabricated
-
-#### Step 7: Generate, Validate, and Create Objects
-
-After completing Steps 1-6 verification, you have complete implementation knowledge. Now follow this three-phase workflow:
-
-**Final pre-generation checklist:**
-- [ ] Loaded all 7 required files from Step 1? (tools-mcp, confirmation-patterns, function-reference, component-reference, null-safety-patterns, short-circuit-patterns, sail-verification-checkpoint)
-- [ ] Passed Step 4 checkpoint? (completed sail-verification-checkpoint.md exit checklist)
-  - [ ] Expression rules: Step 4A completed (all functions verified)
-  - [ ] Interfaces: BOTH Step 4A (functions verified) AND Step 4B (components verified, instruction files loaded)
-- [ ] Loaded primary domain reference for this task (Step 2)?
-- [ ] Loaded UI pattern examples if applicable (Step 3)?
-- [ ] Understand naming conventions (table names, field names, relationship names)?
-- [ ] Understand dependency order (what must exist before creating this object)?
-- [ ] Have actual UUIDs from environment (not fabricated)?
-- [ ] Know which relationships are mandatory (e.g., USER fields → SYSTEM_RECORD_TYPE_USER)?
-- [ ] Completed Step 6 pre-implementation verification?
-
----
-
-##### Step 7A: Generate SAIL Expression
-
-**For Expression Rules:**
-- Generate the expression body as a string
-- Ensure all `ri!` references match input parameter names
-- Apply null safety patterns from null-safety-patterns.md
-- Use only verified functions (Step 4A complete)
-
-**For Interfaces:**
-- Generate the full interface expression as a string
-- Ensure all `ri!` references match input parameter names
-- Apply null safety patterns from null-safety-patterns.md
-- Use only verified functions AND components (Step 4A + 4B complete)
-- Follow interface-generation-checklist.md validation items
-
----
-
-##### Step 7B: Validate Expression (Retry Loop)
-
-**🛑 MANDATORY: Load validation checkpoint document**
-
-```
-Load: references/validation-checkpoint.md
-```
-
-**Validation workflow:**
-
-1. **Call `validateExpression` MCP tool** with generated SAIL
-2. **If validation passes** (`hasErrors: false`) → Proceed to Step 7C
-3. **If validation fails** (`hasErrors: true`) → Enter retry loop:
-
-**Retry Loop (MAX_ATTEMPTS = 3):**
-
-```
-Attempt 1: Validate generated SAIL
-  ❌ If fails → Extract error details, fix SAIL
-
-Attempt 2: Re-validate fixed SAIL
-  ❌ If fails → Extract error details, fix again
-
-Attempt 3: Final validation
-  ❌ If fails → Report to user with full error details
-  ✅ If passes → Proceed to Step 7C
-```
-
-**Error Fix Strategy:**
-
-- **Parse errors** (syntax) → Check delimiters, function names (anti-hallucination list)
-- **Discovery errors** (references) → Verify `ri!`, `recordType!`, `local!` names
-- **Eval errors** (types) → Apply explicit casting, fix null handling
-
-**After 3 failed attempts:**
-- Report validation errors to user
-- Include error messages from `parseErrors`, `discoveryErrors`, `evalErrors`
-- Request user guidance or manual review
-
-**Validation checkpoint document provides:**
-- ✅ Complete retry loop pattern (with pseudo-code)
-- ✅ Error fix strategies by error type
-- ✅ Real examples (expression rule + interface with retry)
-- ✅ Common validation errors and fixes table
-
----
-
-##### Step 7C: Create Object (Only After Validation Passes)
-
-✅ **Validation passed** → Now safe to call MCP tools:
-
-**For Expression Rules:**
-```
-Call: createExpressionRule
-Parameters: {
-  name: "...",
-  expression: "<validated SAIL>",
-  inputs: [...],
-  ...
-}
-```
-
-**For Interfaces:**
-```
-Call: createInterface
-Parameters: {
-  name: "...",
-  expression: "<validated SAIL>",
-  inputs: [...],
-  ...
-}
-```
-
-**IMPORTANT:** Do NOT call `createExpressionRule` or `createInterface` until Step 7B validation passes.
-
----
-
-##### Step 7D: Test Conditionally-Rendered Interfaces (`testInterface`)
-
-**Applies to interfaces only.** `createInterface` parses and design-checks the whole expression, but only **evaluates** the branches active under the default inputs (null unless you supply `testInputs`). A runtime error inside a branch that is inactive at creation — e.g., a component missing a required parameter in the `isUpdate = true` path — passes creation cleanly and fails only when a user triggers that branch.
-
-**After creating an interface with any input-dependent rendering, call `testInterface`** with inputs chosen to render each branch the default inputs do NOT exercise, and check `diagnostics.error`:
-
-- Create/update form gated by `isUpdate` → test with `isUpdate: true` (and a sample `record`)
-- `showWhen` / `if()` sections gated by a status, role, or flag → test with values that make each section render
-- Components fed by a record input (`ri!record`) → test with a populated record
-
-Repeat until every conditionally-rendered branch has been evaluated at least once. **Skip only** when the entire component tree already renders under the default inputs.
-
-See `references/validation-checkpoint.md` ("What createInterface / updateInterface Validate") for the full explanation.
 
 ---
 

@@ -1,0 +1,16 @@
+{
+  "name": "generator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "define.js",
+  "scripts": {
+    "test": "node test/run-tests.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "fast-check": "^4.9.0"
+  }
+}

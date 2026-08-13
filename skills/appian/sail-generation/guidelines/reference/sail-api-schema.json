@@ -1,0 +1,175 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "SAIL API Master Index - Use this file to understand which schema to load based on your task. DO NOT load this file for parameter validation - load specific schema files instead.",
+  "version": "2.3.0",
+  "type": "index",
+
+  "loadingStrategy": {
+    "description": "Load ONLY the schema files you need based on interface type and components used",
+
+    "byInterfaceType": {
+      "forms": {
+        "description": "For create/update forms and data entry interfaces",
+        "alwaysLoad": [
+          "schemas/layouts-schema.json",
+          "schemas/input-components-schema.json",
+          "schemas/button-components-schema.json"
+        ],
+        "conditionalLoad": {
+          "multiStepForms": ["schemas/layouts-schema.json (includes wizardLayout)"],
+          "complexValidation": ["schemas/expression-functions-schema.json"]
+        },
+        "estimatedLines": "~2100-2400 lines (54-48% savings vs full schema)"
+      },
+
+      "displays": {
+        "description": "For dashboards, reports, and read-only views",
+        "alwaysLoad": [
+          "schemas/layouts-schema.json",
+          "schemas/display-components-schema.json"
+        ],
+        "conditionalLoad": {
+          "hasGrids": ["schemas/grid-components-schema.json"],
+          "hasCharts": ["schemas/chart-components-schema.json"],
+          "hasButtons": ["schemas/button-components-schema.json"],
+          "complexQueries": ["schemas/expression-functions-schema.json"]
+        },
+        "estimatedLines": "~2100-2600 lines (43-54% savings vs full schema)"
+      },
+
+      "gridInterfaces": {
+        "description": "For list views and tabular data displays",
+        "alwaysLoad": [
+          "schemas/layouts-schema.json",
+          "schemas/grid-components-schema.json"
+        ],
+        "conditionalLoad": {
+          "hasActions": ["schemas/button-components-schema.json"],
+          "hasFilters": ["schemas/input-components-schema.json"],
+          "complexLogic": ["schemas/expression-functions-schema.json"]
+        },
+        "estimatedLines": "~1900-2500 lines (45-59% savings vs full schema)"
+      }
+    },
+
+    "byComponentUsage": {
+      "description": "Alternative approach: Load based on specific components needed",
+
+      "layouts": {
+        "file": "schemas/layouts-schema.json",
+        "lines": 814,
+        "components": 18,
+        "includes": ["formLayout", "headerContentLayout", "paneLayout", "wizardLayout", "columnsLayout", "sideBySideLayout", "cardLayout", "sectionLayout", "billboardLayout", "boxLayout"]
+      },
+
+      "inputs": {
+        "file": "schemas/input-components-schema.json",
+        "lines": 1027,
+        "components": 18,
+        "includes": ["textField", "paragraphField", "dateField", "dropdownField", "checkboxField", "radioButtonField", "fileUploadField", "integerField", "decimalField", "pickerField"]
+      },
+
+      "displays": {
+        "file": "schemas/display-components-schema.json",
+        "lines": 739,
+        "components": 14,
+        "includes": ["richTextDisplayField", "stampField", "tagField", "imageField", "documentViewerField", "userImage", "headingField", "gaugeField"]
+      },
+
+      "grids": {
+        "file": "schemas/grid-components-schema.json",
+        "lines": 533,
+        "components": 12,
+        "includes": ["gridField", "gridColumn", "pagingInfo", "sortInfo", "recordData", "queryRecordType", "queryFilter", "relatedRecordData"]
+      },
+
+      "charts": {
+        "file": "schemas/chart-components-schema.json",
+        "lines": 452,
+        "components": 12,
+        "includes": ["columnChartField", "barChartField", "lineChartField", "pieChartField", "areaChartField", "measure", "grouping", "chartConfig variants"]
+      },
+
+      "buttons": {
+        "file": "schemas/button-components-schema.json",
+        "lines": 111,
+        "components": 3,
+        "includes": ["buttonWidget", "buttonArrayLayout", "buttonLayout"]
+      },
+
+      "functions": {
+        "file": "schemas/expression-functions-schema.json",
+        "lines": 953,
+        "components": 39,
+        "functions": 60,
+        "includes": ["localVariables", "forEach", "if/and/or/not", "index/length/append", "wherecontains", "a!match", "richTextItem", "richTextIcon", "save", "update"]
+      }
+    }
+  },
+
+  "quickReference": {
+    "totalComponentsInOriginal": 116,
+    "totalExpressionFunctions": 60,
+    "originalFileSize": "4580 lines, 108KB",
+    "splitFilesTotal": "4629 lines (7 files)",
+    "averageReduction": "50-75% depending on task type"
+  },
+
+  "examples": {
+    "simpleContactForm": {
+      "task": "Create a contact form with name, email, phone, message fields and submit button",
+      "load": [
+        "schemas/layouts-schema.json",
+        "schemas/input-components-schema.json",
+        "schemas/button-components-schema.json"
+      ],
+      "totalLines": "~2000 lines",
+      "savings": "56% vs loading full schema"
+    },
+
+    "salesDashboard": {
+      "task": "Dashboard with KPI cards, revenue chart, and top customers grid",
+      "load": [
+        "schemas/layouts-schema.json",
+        "schemas/display-components-schema.json",
+        "schemas/chart-components-schema.json",
+        "schemas/grid-components-schema.json"
+      ],
+      "totalLines": "~2500 lines",
+      "savings": "45% vs loading full schema"
+    },
+
+    "employeeGridWithActions": {
+      "task": "Grid showing employees with edit/delete action buttons",
+      "load": [
+        "schemas/layouts-schema.json",
+        "schemas/grid-components-schema.json",
+        "schemas/button-components-schema.json"
+      ],
+      "totalLines": "~1500 lines",
+      "savings": "67% vs loading full schema"
+    }
+  },
+
+  "migrationNotes": {
+    "oldBehavior": "Previously loaded entire sail-api-schema.json (4580 lines) for all tasks",
+    "newBehavior": "Load only category-specific schema files based on components needed",
+    "breakingChanges": "None - all component definitions remain identical",
+    "benefits": [
+      "50-75% reduction in context consumption",
+      "Faster parsing and response times",
+      "More room for code examples and conversation history",
+      "Easier maintenance (updates only touch relevant category files)"
+    ]
+  },
+
+  "fileLocations": {
+    "layouts": "ui-guidelines/reference/schemas/layouts-schema.json",
+    "inputs": "ui-guidelines/reference/schemas/input-components-schema.json",
+    "displays": "ui-guidelines/reference/schemas/display-components-schema.json",
+    "grids": "ui-guidelines/reference/schemas/grid-components-schema.json",
+    "charts": "ui-guidelines/reference/schemas/chart-components-schema.json",
+    "buttons": "ui-guidelines/reference/schemas/button-components-schema.json",
+    "functions": "ui-guidelines/reference/schemas/expression-functions-schema.json"
+  }
+}

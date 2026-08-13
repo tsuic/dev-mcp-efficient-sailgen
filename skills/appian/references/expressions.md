@@ -625,7 +625,6 @@ Expression rules encapsulate reusable logic. Understanding when and how to manag
 - Use only verified functions (complete Step 4A first)
 
 **Step 7B: Validate Expression (MANDATORY)**
-- Load `references/validation-checkpoint.md` for complete workflow
 - Call `validateExpression` MCP tool with generated expression
 - If validation fails → Fix errors and retry (up to 3 attempts)
 - Common errors: syntax issues, unknown `ri!` names, type mismatches

@@ -1,0 +1,3 @@
+# Node dependencies (not committed — validator dist/ is pre-compiled)
+generator/node_modules/
+validator/node_modules/
