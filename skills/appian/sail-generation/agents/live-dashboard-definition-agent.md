@@ -28,10 +28,13 @@ Do NOT write definition.json with Write/fs_write — always use `--write`.
 
 ## Step 2 — Scaffold
 
+Chain these into a single Bash call — they always run in sequence, and `&&` still stops
+the chain (and surfaces the error) if any step fails:
+
 ```bash
-node generator/scaffold.js --from-definition {uuid}
-./validate.sh $TMPDIR/sail-generation/{uuid}/{slug}-scaffold.sail
-mv $TMPDIR/sail-generation/{uuid}/{slug}-scaffold.sail $TMPDIR/sail-generation/{uuid}/{slug}.sail
+node generator/scaffold.js --from-definition {uuid} && \
+  ./validate.sh $TMPDIR/sail-generation/{uuid}/{slug}-scaffold.sail && \
+  mv $TMPDIR/sail-generation/{uuid}/{slug}-scaffold.sail $TMPDIR/sail-generation/{uuid}/{slug}.sail
 ```
 
 ## Step 3 — Done or Need Pass 3?
@@ -83,6 +86,17 @@ A live dashboard uses the same `"type": "dashboard"` schema as the mockup agent,
 - `fields`: object mapping short aliases → full field reference strings. Include every field referenced by any section. Aliases should be short camelCase names (e.g. "id", "statusId", "categoryLabel")
 - `relationships`: object mapping aliases → relationship path prefixes. Used when a chart groups by a related field
 - Copy exact UUIDs from the dispatch brief — never fabricate them
+
+**A relationship-qualified field (e.g. a lookup table's "label" column) needs TWO separate
+UUIDs, not one:** the relationship's own UUID (from the base record type) AND the field's
+own UUID (from the RELATED record type's getRecordType — the relationship UUID does NOT
+double as the field UUID). A reference like `...relationships.{relUuid}status.fields.label`
+— field name with no `{uuid}` prefix — is invalid and will be REJECTED by
+`define.js --write`; it is not a valid partial form or a shorthand.
+If the dispatch brief gives you the relationship UUID but not the target field's own UUID,
+that identifier is genuinely missing — follow the "What You Do NOT Do" rule above: use a
+static fallback value for that field and note the gap in a comment. Do not invent or omit
+the `{uuid}` segment to make the string "look" complete.
 
 ### Query-powered KPIs
 

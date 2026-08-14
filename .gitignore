@@ -5,8 +5,14 @@ Thumbs.db
 # Editors
 .idea/
 .vscode/
-.claude/
-.kiro/
 *.swp
 *.swo
 *~
+
+# Kiro — track steering (shareable), ignore local settings/specs
+.kiro/settings/
+.kiro/specs/
+
+# Claude — track skills + shared settings, ignore local settings
+.claude/settings.local.json
+.mcp.json

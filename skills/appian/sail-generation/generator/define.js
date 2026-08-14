@@ -700,6 +700,34 @@ function validateDashboardFilters(filters, context, errors) {
   filters.forEach((f, fi) => validateDashboardFilter(f, `${context}[${fi}]`, errors));
 }
 
+// Every ".fields." segment in a record-field reference string must be immediately
+// followed by a "{uuid}" brace — Appian requires the field's own UUID prefix
+// (e.g. ".fields.{0c17d4da-...}label"), never a bare field name (".fields.label").
+// A bare-name reference looks plausible but is silently unresolvable at runtime —
+// the local structural validator can't catch it (no live schema), so this must be
+// caught here, at definition-write time, before scaffold.js ever renders it.
+const BARE_FIELDS_SEGMENT = /\.fields\.(?!\{)/;
+// Same requirement for ".relationships." segments.
+const BARE_RELATIONSHIPS_SEGMENT = /\.relationships\.(?!\{)/;
+
+function validateFieldRefShape(ref, context, errors) {
+  if (typeof ref !== "string") return; // caught elsewhere as a type error
+  if (BARE_FIELDS_SEGMENT.test(ref)) {
+    errors.push(
+      `${context}: "${ref}" has a ".fields." segment without a "{uuid}" prefix on the field name. ` +
+      `Related-record field references must include the field's OWN uuid from the RELATED record ` +
+      `type's getRecordType call (e.g. ".fields.{0c17d4da-...}label"), not just the field name. ` +
+      `Call getRecordType on the related record type to get this uuid — do not guess or omit it.`
+    );
+  }
+  if (BARE_RELATIONSHIPS_SEGMENT.test(ref)) {
+    errors.push(
+      `${context}: "${ref}" has a ".relationships." segment without a "{uuid}" prefix on the ` +
+      `relationship name. Use the relationshipUuid from the base record type's relationships list.`
+    );
+  }
+}
+
 function validateDashboardDataSource(ds, errors) {
   const context = "dataSource";
   if (!ds.recordType || typeof ds.recordType !== "string") {
@@ -707,11 +735,19 @@ function validateDashboardDataSource(ds, errors) {
   }
   if (!ds.fields || typeof ds.fields !== "object" || Array.isArray(ds.fields)) {
     errors.push(`${context}: "fields" is required and must be an object mapping alias → field reference`);
+  } else {
+    Object.entries(ds.fields).forEach(([alias, ref]) => {
+      validateFieldRefShape(ref, `${context}.fields.${alias}`, errors);
+    });
   }
   // relationships: optional object mapping alias → relationship path prefix
   if (ds.relationships !== undefined) {
     if (typeof ds.relationships !== "object" || Array.isArray(ds.relationships)) {
       errors.push(`${context}: "relationships" must be an object mapping alias → relationship reference`);
+    } else {
+      Object.entries(ds.relationships).forEach(([alias, ref]) => {
+        validateFieldRefShape(ref, `${context}.relationships.${alias}`, errors);
+      });
     }
   }
 }

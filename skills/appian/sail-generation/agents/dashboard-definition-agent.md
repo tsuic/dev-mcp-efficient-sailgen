@@ -27,10 +27,13 @@ Do NOT write definition.json with Write/fs_write — always use `--write`.
 
 ## Step 2 — Scaffold
 
+Chain these into a single Bash call — they always run in sequence, and `&&` still stops
+the chain (and surfaces the error) if any step fails:
+
 ```bash
-node generator/scaffold.js --from-definition {uuid}
-./validate.sh output/{uuid}/{slug}-scaffold.sail
-mv output/{uuid}/{slug}-scaffold.sail output/{uuid}/{slug}.sail
+node generator/scaffold.js --from-definition {uuid} && \
+  ./validate.sh output/{uuid}/{slug}-scaffold.sail && \
+  mv output/{uuid}/{slug}-scaffold.sail output/{uuid}/{slug}.sail
 ```
 
 ## Step 3 — Done or Need Pass 3?

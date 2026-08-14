@@ -50,7 +50,19 @@ const fs = require("fs");
 const path = require("path");
 
 const WORKSPACE_ROOT = path.join(__dirname, "..");
+const { setOutputRoot } = require("./output-dir");
+
+// ─── Parse --output-dir before accessing OUTPUT_ROOT ───────────────────────
+const rawArgs = process.argv.slice(2);
+const outputDirIdx = rawArgs.indexOf("--output-dir");
+if (outputDirIdx !== -1 && rawArgs[outputDirIdx + 1]) {
+  const dir = path.resolve(WORKSPACE_ROOT, rawArgs[outputDirIdx + 1]);
+  setOutputRoot(dir);
+  rawArgs.splice(outputDirIdx, 2);
+}
+// Re-export after potential override so findSailFile uses the correct root
 const { OUTPUT_ROOT } = require("./output-dir");
+
 const ALIASES_PATH = path.join(
   WORKSPACE_ROOT,
   "guidelines",
@@ -136,7 +148,7 @@ function inferIcon(lineText, validAliases) {
 
 // ─── Main ──────────────────────────────────────────────────────────────────
 function main() {
-  const args = process.argv.slice(2);
+  const args = rawArgs;
 
   if (args.length < 1) {
     console.error(

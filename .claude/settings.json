@@ -1,0 +1,13 @@
+{
+  "enableAllProjectMcpServers": true,
+  "permissions": {
+    "allow": [
+      "mcp__appian",
+      "mcp__appian__testInterface",
+      "Bash(curl -s \"https://docs.appian.com*)",
+      "mcp__Claude_Browser__read_page",
+      "mcp__appian__getRecordType",
+      "mcp__appian__listApplications"
+    ]
+  }
+}

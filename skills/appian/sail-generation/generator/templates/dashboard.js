@@ -44,25 +44,35 @@ const PIE_SLICE_COLORS = ["#2C3E50", "#3B82F6", "#10B981", "#F59E0B", "#8B5CF6",
 /**
  * Resolve a field alias (e.g. "statusId") to its full reference from dataSource.fields.
  * Handles dotted paths for relationship fields (e.g. "category.label" → relationships.category + .fields.label).
+ *
+ * IMPORTANT: a related record's field (e.g. a lookup table's "label" column) has its own
+ * UUID on the RELATED record type — it is never derivable from the relationship UUID alone.
+ * Callers must supply the fully UUID-qualified reference directly under dataSource.fields
+ * (e.g. "categoryLabel": "recordType!{...}.relationships.{...}category.fields.{uuid}label").
+ * This function does NOT synthesize that UUID — doing so previously produced a bare
+ * ".fields.label" reference (no UUID) that passed local structural validation but was
+ * silently unresolvable by Appian at deploy time. See git history for the incident.
  */
 function resolveFieldRef(alias, dataSource) {
   if (!dataSource) return alias;
+  if (dataSource.fields && dataSource.fields[alias]) return dataSource.fields[alias];
   const dotIdx = alias.indexOf(".");
   if (dotIdx !== -1) {
-    // Relationship-qualified: "category.label" → relationships.category prefix + fields part
     const relAlias = alias.slice(0, dotIdx);
     const fieldPart = alias.slice(dotIdx + 1);
     const relRef = dataSource.relationships && dataSource.relationships[relAlias];
-    if (relRef && dataSource.fields[fieldPart]) {
-      // If the field is stored at the top level as "categoryLabel" or similar, use it
-      return dataSource.fields[alias] || `${relRef}.fields.${fieldPart}`;
+    if (relRef) {
+      throw new Error(
+        `resolveFieldRef: "${alias}" is relationship-qualified but no fully UUID-qualified ` +
+        `entry exists at dataSource.fields["${alias}"]. A related record's field UUID cannot ` +
+        `be inferred from the relationship UUID — call getRecordType on the RELATED record type ` +
+        `("${relRef}") to get "${fieldPart}"'s own uuid, then add ` +
+        `dataSource.fields["${alias}"] = "${relRef}.fields.{<field-uuid>}${fieldPart}" ` +
+        `to the definition JSON and re-run define.js.`
+      );
     }
-    // Direct lookup as compound key
-    if (dataSource.fields[alias]) return dataSource.fields[alias];
-    // Build from relationship + field ref on the related type
-    if (relRef) return `${relRef}.fields.${fieldPart}`;
   }
-  return dataSource.fields[alias] || alias;
+  return alias;
 }
 
 /**
