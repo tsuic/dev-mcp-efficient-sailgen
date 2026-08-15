@@ -19,3 +19,9 @@ Thumbs.db
 
 # SAIL generation test runner output
 skills/appian/sail-generation/tests/logs/
+skills/appian/sail-generation/tests/__pycache__/
+
+# Generated SAIL output (local only)
+output/
+skills/appian/sail-generation/output/
+patient-intake-wizard.sail
