@@ -1,0 +1,753 @@
+# =============================================================================
+# SAIL Generation Test Suite — Mockup Test Cases
+# =============================================================================
+#
+# Each test case is a user prompt that should be dispatched through the full
+# SAIL generation pipeline. The interface name (TEST_*) tells the pipeline to
+# create a standalone interface object with no app association.
+#
+# Fields:
+#   id:          Unique test identifier
+#   type:        Expected pipeline classification
+#   prompt:      The natural-language user request (what gets sent to the agent)
+#   covers:      Components/features this test exercises (for coverage tracking)
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# FORM tests — data entry interfaces
+# -----------------------------------------------------------------------------
+
+- id: form-01-employee-onboarding
+  type: form
+  prompt: >
+    Create a standalone interface called TEST_EmployeeOnboarding.
+    Build an employee onboarding form with sections for Personal Information
+    (first name, middle initial, last name in a row, then email and phone in a
+    row, then date of birth), Employment Details (department dropdown with
+    Engineering/Sales/Marketing/HR/Finance, role title, start date, salary as a
+    decimal), and Preferences (remote work toggle, preferred office location
+    dropdown with NYC/SF/London/Berlin, dietary restrictions checkboxes with
+    Vegetarian/Vegan/Gluten-Free/Halal/Kosher/None).
+  covers:
+    - form sections
+    - multi-field rows with width weighting
+    - text, email, phone, date, dropdown, decimal, toggle, checkbox
+    - required fields
+
+- id: form-02-incident-report
+  type: form
+  prompt: >
+    Create a standalone interface called TEST_IncidentReport.
+    Build a security incident report form. First section "Incident Details":
+    incident title (text, full width), severity (radio buttons: Critical/High/
+    Medium/Low), date and time of incident (datetime), location (text). Second
+    section "Description": detailed description (paragraph field), immediate
+    actions taken (paragraph). Third section "Affected Systems": system name
+    (text) and system owner (user picker) in a row, data classification
+    (dropdown: Public/Internal/Confidential/Restricted), data breach confirmed
+    (boolean checkbox). Fourth section "Attachments": evidence upload (file
+    upload field).
+  covers:
+    - form with 4 sections
+    - paragraph, datetime, radio, boolean, fileupload, userpicker
+    - single-field rows and multi-field rows
+
+- id: form-03-purchase-request
+  type: form
+  prompt: >
+    Create a standalone interface called TEST_PurchaseRequest.
+    A purchase request form with: Requestor Info section (requestor name text,
+    department dropdown with 8 departments, cost center number field), Item
+    Details section (item description text, quantity as integer, unit price as
+    decimal, vendor name text, vendor contact email), Justification section
+    (business justification paragraph, urgency radio with Routine/Urgent/
+    Emergency), Approval section (approving manager user picker, budget owner
+    group picker, requires VP approval toggle).
+  covers:
+    - number (integer), decimal, email, grouppicker
+    - toggle, radio, paragraph, dropdown
+    - mixed row layouts
+
+- id: form-04-patient-intake
+  type: form
+  prompt: >
+    Create a standalone interface called TEST_PatientIntake.
+    A healthcare patient intake form. Demographics section: full name (text),
+    date of birth (date field), sex (radio: Male/Female/Other), SSN (encrypted
+    text field). Contact section: phone and email side by side, street address
+    full width, city and state and zip in a 3:1:1 weighted row. Insurance
+    section: provider (dropdown: Aetna/BlueCross/Cigna/UnitedHealth/Kaiser/
+    Other), policy number (text), group number (text) in a row. Medical History
+    section: known allergies (paragraph), current medications (paragraph),
+    primary care physician (text).
+  covers:
+    - encrypted field
+    - date field
+    - 3-field row with width weighting (3:1:1)
+    - paragraphs for long text
+    - radio with 3 options
+
+- id: form-05-event-registration
+  type: form
+  prompt: >
+    Create a standalone interface called TEST_EventRegistration.
+    An event registration form. Attendee Info: full name (text), email, company
+    (text) in a row. Event Preferences: session track (card choice field with
+    tiles for Technical/Business/Design/Leadership, single select), dietary
+    preference (dropdown: None/Vegetarian/Vegan/Halal/Kosher/Gluten-Free),
+    t-shirt size (radio: XS/S/M/L/XL/XXL). Accessibility: requires
+    accessibility accommodations (boolean), accommodation details (paragraph),
+    preferred communication method (radio: Email/Phone/Text). Agreement:
+    agree to code of conduct (boolean, required), subscribe to newsletter
+    (toggle).
+  covers:
+    - cardchoice with TILE template
+    - boolean vs toggle distinction
+    - conditional-feel layout (accessibility details)
+    - required boolean (agreement)
+
+# -----------------------------------------------------------------------------
+# WIZARD tests — multi-step sequential processes
+# -----------------------------------------------------------------------------
+
+- id: wizard-01-new-hire-setup
+  type: wizard
+  prompt: >
+    Create a standalone interface called TEST_NewHireSetup.
+    Build a 4-step new hire setup wizard. Step 1 "Personal Details": first name
+    and last name in a row, email, phone number, date of birth. Step 2
+    "Job Configuration": department (dropdown with 6 departments), job title,
+    manager (user picker), start date, employment type (radio: Full-Time/
+    Part-Time/Contract). Step 3 "IT Setup": laptop preference (card choice:
+    MacBook Pro/ThinkPad/Surface Pro, single select), needs VPN access
+    (toggle), additional software (checkboxes: Slack/Zoom/Figma/Jira/Tableau).
+    Step 4 "Review & Confirm": office location (dropdown: NYC/SF/London/
+    Austin), parking pass needed (boolean), any notes (paragraph).
+  covers:
+    - 4-step wizard
+    - cardchoice, toggle, checkbox, userpicker, date
+    - dropdown, radio, paragraph
+    - multi-field rows
+
+- id: wizard-02-expense-submission
+  type: wizard
+  prompt: >
+    Create a standalone interface called TEST_ExpenseSubmission.
+    A 3-step expense report wizard. Step 1 "Trip Details": trip name (text),
+    destination (text), departure date and return date in a row (both date
+    fields), business purpose (paragraph). Step 2 "Expenses": expense category
+    (dropdown: Airfare/Hotel/Meals/Ground Transport/Conference Fee/Other),
+    amount (decimal), currency (radio: USD/EUR/GBP/JPY), merchant name (text),
+    receipt (file upload). Step 3 "Submission": cost center (number), approving
+    manager (user picker), urgency (radio: Standard/Rush), additional comments
+    (paragraph).
+  covers:
+    - 3-step wizard
+    - date fields side by side
+    - decimal, fileupload, number
+    - dropdown, radio, userpicker
+
+- id: wizard-03-vendor-qualification
+  type: wizard
+  prompt: >
+    Create a standalone interface called TEST_VendorQualification.
+    A 5-step vendor qualification wizard. Step 1 "Company Profile": company
+    name and DBA in a row, tax ID (text), country (dropdown with 10 countries),
+    website URL (text). Step 2 "Contact Information": primary contact name and
+    title in a row, email and phone in a row, secondary contact name (text),
+    secondary contact email. Step 3 "Capabilities": service categories
+    (checkboxes: IT Services/Consulting/Manufacturing/Logistics/Marketing/
+    Legal/Facilities), years in business (number), annual revenue (decimal),
+    number of employees (number). Step 4 "Compliance": ISO certified (boolean),
+    SOC 2 compliant (boolean), GDPR compliant (boolean), insurance provider
+    (text), policy number (text). Step 5 "Documentation": company description
+    (paragraph), upload certifications (file upload), upload insurance docs
+    (file upload).
+  covers:
+    - 5-step wizard (max common steps)
+    - multiple boolean fields
+    - multiple file uploads
+    - checkboxes with many options
+    - number and decimal in same step
+
+# -----------------------------------------------------------------------------
+# GRID tests — record list / table views
+# -----------------------------------------------------------------------------
+
+- id: grid-01-order-management
+  type: grid
+  prompt: >
+    Create a standalone interface called TEST_OrderManagement.
+    Build an order management grid with columns: Order ID (primary, NARROW_PLUS),
+    Customer (text, MEDIUM), Order Date (text, MEDIUM), Total (text, NARROW_PLUS,
+    right-aligned), Status (tag, NARROW_PLUS, with colors: Pending=SECONDARY,
+    Processing=ACCENT, Shipped=ACCENT, Delivered=POSITIVE, Cancelled=NEGATIVE).
+    Include 6 sample rows with realistic order data. Add a Status filter.
+    Primary action button labeled "New Order".
+  covers:
+    - grid with tag column
+    - tagColors mapping (5 statuses)
+    - right-aligned column
+    - filter derived from tag column
+    - primaryActionLabel
+    - PLAIN_CARD header (default)
+
+- id: grid-02-employee-directory
+  type: grid
+  prompt: >
+    Create a standalone interface called TEST_EmployeeDirectory.
+    An employee directory grid. Columns: Name (primary, MEDIUM), Department
+    (text, MEDIUM), Title (text, MEDIUM_PLUS), Location (text, NARROW_PLUS),
+    Status (tag, NARROW, colors: Active=POSITIVE, On Leave=SECONDARY,
+    Terminated=NEGATIVE). 8 sample rows spanning all statuses. Filters for
+    Department (choices: Engineering/Sales/Marketing/HR/Finance/Operations)
+    and Status. Hero-style header with subtitle "Find and connect with
+    colleagues across the organization".
+  covers:
+    - grid with HERO headerKind
+    - multiple filters
+    - many sample rows
+    - primary column (linked name)
+
+- id: grid-03-project-tracker
+  type: grid
+  prompt: >
+    Create a standalone interface called TEST_ProjectTracker.
+    A project portfolio grid with columns: Project Name (primary, MEDIUM_PLUS),
+    Owner (text, NARROW_PLUS), Priority (tag, NARROW, colors: Critical=NEGATIVE,
+    High=ACCENT, Medium=SECONDARY, Low=POSITIVE), Progress (progressBar,
+    NARROW_PLUS), Due Date (text, NARROW_PLUS), Budget (text, NARROW_PLUS,
+    right-aligned). 5 sample rows. Filter for Priority. No header (headerKind
+    NONE).
+  covers:
+    - progressBar column type
+    - headerKind NONE
+    - tag + progressBar in same grid
+    - right-aligned budget column
+    - filter on tag column
+
+- id: grid-04-asset-inventory
+  type: grid
+  prompt: >
+    Create a standalone interface called TEST_AssetInventory.
+    An IT asset inventory grid. Columns: Asset Tag (primary, NARROW_PLUS),
+    Device (text, MEDIUM), Assigned To (text, MEDIUM), Location (text,
+    NARROW_PLUS), Condition (tag, NARROW_PLUS, colors: Excellent=POSITIVE,
+    Good=ACCENT, Fair=SECONDARY, Poor=NEGATIVE, Retired=NEGATIVE), Actions
+    (buttonArray, NARROW_PLUS). 6 rows of laptop/monitor/phone assets.
+    Filter for Condition. Billboard header with a background image URL
+    "https://images.unsplash.com/photo-1518770660439-4636190af475" and
+    subtitle "Track and manage all company hardware assets".
+  covers:
+    - buttonArray column type
+    - headerKind BILLBOARD with image
+    - 5-value tag column
+    - filter on tag
+
+# -----------------------------------------------------------------------------
+# DASHBOARD tests — KPIs, charts, metrics overview
+# -----------------------------------------------------------------------------
+
+- id: dashboard-01-sales-overview
+  type: dashboard
+  prompt: >
+    Create a standalone interface called TEST_SalesDashboard.
+    A sales performance dashboard. Start with 4 KPI cards: Total Revenue
+    ($2.4M, +12% vs last quarter, dollar-sign icon), Deals Closed (147,
+    +8 this week, handshake-o icon), Avg Deal Size ($16.3K, up from $14.8K,
+    line-chart icon), Win Rate (34%, +2pp vs last month, trophy icon). Then a
+    column chart "Monthly Revenue" with months Jan-Jun and values showing
+    growth. Then side-by-side: a pie chart "Revenue by Region" (North America
+    55%, Europe 28%, Asia Pacific 17%) and a line chart "Pipeline Trend"
+    showing 5 weeks of data. Finally an embedded grid "Top Deals" with columns:
+    Deal (primary), Company (text), Value (text, right-aligned), Stage (tag
+    with Negotiation=ACCENT, Proposal=SECONDARY, Closed Won=POSITIVE).
+  covers:
+    - dashboard with kpis + chart + columns + grid
+    - 4 KPI cards with icons and sub text
+    - column chart, pie chart, line chart
+    - side-by-side charts in columns section
+    - embedded grid with tag column
+
+- id: dashboard-02-hr-analytics
+  type: dashboard
+  prompt: >
+    Create a standalone interface called TEST_HRAnalytics.
+    An HR analytics dashboard. KPIs: Headcount (1,247, +32 this quarter,
+    users icon), Open Positions (43, 12 urgent, briefcase icon), Avg Tenure
+    (3.2 years, up from 2.8, calendar icon), Turnover Rate (8.4%, down
+    from 11.2%, chart-line icon). Then a bar chart "Headcount by Department"
+    with 6 departments. Then columns layout: an area chart "Monthly Attrition"
+    (6 months of data) and a pie chart "Diversity Breakdown" (4 categories).
+    No embedded grid. Header subtitle: "Workforce insights at a glance".
+  covers:
+    - dashboard without embedded grid
+    - bar chart and area chart types
+    - 4 KPIs
+    - columns with area + pie
+
+- id: dashboard-03-devops-monitoring
+  type: dashboard
+  prompt: >
+    Create a standalone interface called TEST_DevOpsDashboard.
+    A DevOps monitoring dashboard. KPIs: Uptime (99.97%, SLA target 99.9%,
+    server icon), Deployments (23, this week, rocket icon), Incidents (3,
+    2 resolved, exclamation-triangle icon), Avg Deploy Time (4.2 min, down
+    from 6.1, clock-o icon), Error Rate (0.03%, within threshold,
+    bug icon), Active Alerts (7, 2 critical, bell icon). Then a line chart
+    "Response Time (ms)" with hourly data over 8 hours showing a spike.
+    Then side-by-side: a column chart "Deploys per Service" (5 services)
+    and a pie chart "Incident Severity" (Critical/High/Medium/Low). Then a
+    grid "Active Incidents" with columns: ID (primary), Service (text),
+    Severity (tag: Critical=NEGATIVE, High=ACCENT, Medium=SECONDARY,
+    Low=POSITIVE), Duration (text). 4 rows.
+  covers:
+    - 6 KPIs (max common count)
+    - line chart with spike pattern
+    - column + pie side by side
+    - embedded incident grid
+    - many icons
+
+- id: dashboard-04-financial-summary
+  type: dashboard
+  prompt: >
+    Create a standalone interface called TEST_FinancialSummary.
+    A quarterly financial summary dashboard. KPIs: Revenue ($8.7M, +15% YoY,
+    dollar-sign icon), EBITDA ($2.1M, 24% margin, line-chart icon), Cash
+    Flow ($1.3M, positive trend, exchange icon), Burn Rate ($420K/mo,
+    18 months runway, fire icon). Column chart "Revenue vs Expenses" with
+    Q1-Q4 and two series: Revenue and Expenses. Then columns: a line chart
+    "Monthly Cash Position" (6 data points) and a bar chart "Department
+    Spend" (5 departments). Hero header with subtitle "Q2 2024 Financial
+    Performance".
+  covers:
+    - multi-series column chart
+    - HERO headerKind on dashboard
+    - line + bar side by side
+    - financial domain
+
+# -----------------------------------------------------------------------------
+# RECORD-VIEW tests — read-only record detail pages
+# -----------------------------------------------------------------------------
+
+- id: record-view-01-employee-profile
+  type: record-view
+  prompt: >
+    Create a standalone interface called TEST_EmployeeProfile.
+    An employee profile record view for "Sarah Chen". Key attributes: Status
+    (Active, as tag with colors Active=POSITIVE/On Leave=SECONDARY/
+    Terminated=NEGATIVE), Department (Engineering), Title (Senior Staff
+    Engineer), Start Date (2019-03-15). Sections: Contact Information with
+    email, phone, office location, Slack handle; Compensation with salary
+    band (L6), equity grant date, last review date; Skills & Certifications
+    with a paragraph listing AWS Solutions Architect, Kubernetes Administrator,
+    PMP certifications and specializations.
+  covers:
+    - record-view with keyAttributes (tag + text)
+    - multiple sections with mixed field types
+    - paragraph in record view
+    - tagColors on key attribute
+
+- id: record-view-02-support-ticket
+  type: record-view
+  prompt: >
+    Create a standalone interface called TEST_SupportTicket.
+    A support ticket record view for ticket "TKT-2847". Key attributes: Status
+    (In Progress, tag with Open=ACCENT/In Progress=SECONDARY/Resolved=POSITIVE/
+    Closed=POSITIVE), Priority (High, tag with Critical=NEGATIVE/High=ACCENT/
+    Medium=SECONDARY/Low=POSITIVE), Assigned To (James Wilson), Created
+    (2024-06-12). Sections: Issue Details with subject line, description
+    (paragraph with 2-3 sentences), affected system, browser/OS; Resolution
+    with root cause (paragraph), resolution steps (paragraph), time to resolve.
+  covers:
+    - record-view with 2 tag key attributes
+    - multiple tagColors maps
+    - multiple paragraph fields
+    - technical domain
+
+- id: record-view-03-product-spec
+  type: record-view
+  prompt: >
+    Create a standalone interface called TEST_ProductSpec.
+    A product specification record view for "Wireless Noise-Cancelling
+    Headphones XR-500". Key attributes: Category (Audio Equipment),
+    SKU (XR-500-BLK), Status (In Production, tag with In Production=POSITIVE/
+    Prototype=SECONDARY/Discontinued=NEGATIVE/Planning=ACCENT), Launch Date
+    (2024-01-15). Sections: Physical Specifications with weight, dimensions,
+    color options, material; Technical Specs with driver size, frequency
+    response, impedance, battery life, bluetooth version; Pricing with MSRP,
+    wholesale cost, margin percentage; Description (paragraph with marketing
+    copy).
+  covers:
+    - record-view with many fields per section
+    - 4 sections
+    - product/retail domain
+    - mix of numeric-looking text values
+
+# -----------------------------------------------------------------------------
+# PANE tests — master-detail split panels
+# -----------------------------------------------------------------------------
+
+- id: pane-01-email-client
+  type: pane
+  prompt: >
+    Create a standalone interface called TEST_EmailClient.
+    An email client pane layout with 3 panes. Left pane (NARROW, dark
+    background #1a1a2e): navigation with folders Inbox, Sent, Drafts,
+    Trash, Spam, Archive. Middle pane (MEDIUM_PLUS, no background): a grid
+    showing emails with columns From (primary, MEDIUM), Subject (text,
+    MEDIUM_PLUS), Date (text, NARROW_PLUS). 5 sample email rows. Right pane
+    (AUTO, light background #f8f9fa): detail view with fields From, To, Date,
+    Subject, and a long message body paragraph. Header subtitle "Manage your
+    communications".
+  covers:
+    - 3-pane layout
+    - nav content type
+    - grid in middle pane
+    - detail in right pane
+    - dark + light backgrounds
+    - headerSubtitle on pane
+
+- id: pane-02-project-kanban
+  type: pane
+  prompt: >
+    Create a standalone interface called TEST_ProjectKanban.
+    A project management pane with 2 panes. Left pane (NARROW, background
+    #2d3436): navigation with items All Projects, My Projects, Starred,
+    Recently Viewed, Archived. Right pane (AUTO): a grid showing projects
+    with columns: Project (primary, MEDIUM_PLUS), Team Lead (text, MEDIUM),
+    Status (tag, NARROW_PLUS, colors: Active=POSITIVE, On Hold=SECONDARY,
+    Completed=ACCENT, At Risk=NEGATIVE), Deadline (text, NARROW_PLUS). 6
+    rows. No header.
+  covers:
+    - 2-pane layout
+    - nav + grid combination
+    - grid with tag column inside pane
+    - no header (omit headerSubtitle)
+
+- id: pane-03-analytics-console
+  type: pane
+  prompt: >
+    Create a standalone interface called TEST_AnalyticsConsole.
+    An analytics console pane layout. Left pane (NARROW_PLUS, background
+    #2c3e50): navigation with Metrics Overview, Revenue, Users, Conversions,
+    Performance, Settings. Right pane (AUTO): KPI section with 3 cards
+    (Active Users 12.4K +5%, Conversion Rate 3.2% +0.4pp, Avg Session 4:32
+    -12s). Header subtitle: "Real-time analytics dashboard".
+  covers:
+    - pane with kpis content type
+    - nav + kpis combination
+    - headerSubtitle
+
+# -----------------------------------------------------------------------------
+# COMPONENT tests — single bare components
+# -----------------------------------------------------------------------------
+
+- id: component-01-kpi-cards
+  type: component
+  prompt: >
+    Create a standalone interface called TEST_KPICards.
+    Just a set of 5 KPI metric cards (no page framing): Total Users (45.2K,
+    +2.3K this month, users icon), Active Sessions (1,847, peak today,
+    signal icon), Conversion Rate (3.8%, +0.5pp, chart-line icon), Revenue
+    ($127K, on track, dollar-sign icon), Support Tickets (23, 5 urgent,
+    ticket icon).
+  covers:
+    - bare component (kpis)
+    - 5 KPI items
+    - various icons
+
+- id: component-02-bar-chart
+  type: component
+  prompt: >
+    Create a standalone interface called TEST_BarChart.
+    A single bar chart component (no page) showing "Support Tickets by
+    Category" with categories Bug Reports, Feature Requests, Account Issues,
+    Performance, Documentation, Other and values 145, 89, 67, 43, 31, 22.
+    Use a blue-gray color.
+  covers:
+    - bare component (chart)
+    - bar chart type
+    - single series
+
+- id: component-03-data-grid
+  type: component
+  prompt: >
+    Create a standalone interface called TEST_DataGrid.
+    A bare grid component (no page framing, no filters) with columns:
+    Invoice (primary, NARROW_PLUS), Client (text, MEDIUM), Amount (text,
+    NARROW_PLUS, right-aligned), Due Date (text, NARROW_PLUS), Status (tag,
+    NARROW, colors: Paid=POSITIVE, Pending=SECONDARY, Overdue=NEGATIVE).
+    4 rows of invoice data.
+  covers:
+    - bare component (grid)
+    - no filter chrome
+    - tag column in component context
+
+# -----------------------------------------------------------------------------
+# LAYOUT tests — recursive container/leaf tree structures
+# -----------------------------------------------------------------------------
+
+- id: layout-01-team-directory-cards
+  type: layout
+  prompt: >
+    Create a standalone interface called TEST_TeamDirectory.
+    A team directory page with a HERO header (title "Our Team", subtitle "Meet
+    the people behind the product"). Body is a cardGroup of 6 imageCard leaves,
+    each representing a team member with a placeholder photo URL
+    (https://i.pravatar.cc/300?img=N for N=1-6), their name as heading, role as
+    text, and a "View Profile" link.
+  covers:
+    - layout type with HERO headerKind
+    - cardGroup container
+    - imageCard leaf (×6)
+    - link on imageCard
+
+- id: layout-02-notification-center
+  type: layout
+  prompt: >
+    Create a standalone interface called TEST_NotificationCenter.
+    A notification center page (no header, bare fragment). Use tabs container
+    with 3 tabs: "All", "Unread", "Mentions". Inside each tab, an itemList
+    leaf showing notification items. The "All" tab has 5 items with text avatar
+    type and trailing tag (types: Info=ACCENT, Warning=SECONDARY, Alert=NEGATIVE,
+    Success=POSITIVE, Info=ACCENT). "Unread" tab has 3 items, "Mentions" tab
+    has 2 items. Each notification has a person's initials, title (the person's
+    name), and text (the notification message).
+  covers:
+    - layout with tabs container
+    - itemList leaf with text avatars
+    - trailingType "tag"
+    - multiple tabs with different item counts
+
+- id: layout-03-pricing-page
+  type: layout
+  prompt: >
+    Create a standalone interface called TEST_PricingPage.
+    A SaaS pricing page. PLAIN_CARD header with title "Choose Your Plan" and
+    subtitle "Start free, upgrade anytime". Body: columns container with 3
+    items, each a "card" container (styles: STANDARD, ACCENT, STANDARD) holding
+    a vertical stack — a heading leaf (plan name: Starter/Professional/
+    Enterprise), a keyValueList leaf (Features: 5 items each like "Users: Up to
+    5", "Storage: 10GB", "Support: Email", "API calls: 1K/mo", "Integrations:
+    3"), and a richTextBlock leaf with the price ("$0/mo", "$49/mo", "Custom").
+  covers:
+    - layout with columns + nested card containers
+    - card style variants (STANDARD, ACCENT)
+    - heading leaf
+    - keyValueList leaf
+    - richTextBlock leaf
+    - 3-column pricing pattern
+
+- id: layout-04-activity-feed
+  type: layout
+  prompt: >
+    Create a standalone interface called TEST_ActivityFeed.
+    An activity feed page (no header). Root is a columns container with 2 items:
+    left column (width "WIDE_PLUS") has an itemList leaf with 6 activity items
+    using icon avatars (use "circle" placeholders), text trailing type showing
+    timestamps like "2 hours ago", "Yesterday", etc. Each item is an activity
+    description (e.g., "Completed code review for PR #342"). Right column
+    (width "MEDIUM") has a card container holding a keyValueList leaf "Quick
+    Stats" with items: Today's Activity (12), This Week (47), Pending Reviews
+    (3), Team Members Online (8).
+  covers:
+    - layout with columns (explicit widths)
+    - itemList with icon avatars
+    - trailingType "text"
+    - card container with keyValueList
+    - two-column asymmetric layout
+
+- id: layout-05-status-board
+  type: layout
+  prompt: >
+    Create a standalone interface called TEST_StatusBoard.
+    A service status board. PLAIN_CARD header titled "System Status", subtitle
+    "All systems operational". Body: first a banner leaf (severity: SUCCESS,
+    text "All services are running normally", heading "Operational"), then a
+    sideBySide container with a stamp leaf (icon "circle", color "#27ae60",
+    width MINIMIZE) and a heading leaf (text "Core Services", size MEDIUM).
+    Then a tagGroup leaf with items: API (color POSITIVE), Web App (POSITIVE),
+    Database (POSITIVE), CDN (POSITIVE), Auth Service (POSITIVE). Then another
+    sideBySide + heading for "Recent Incidents" and an itemList leaf showing
+    3 past incidents with text avatars and tag trailing (Resolved=POSITIVE,
+    Investigating=SECONDARY, Resolved=POSITIVE).
+  covers:
+    - banner leaf (SUCCESS severity)
+    - stamp leaf in sideBySide (MINIMIZE width)
+    - heading leaf
+    - tagGroup leaf
+    - itemList with tag trailing
+    - multiple sequential layout sections
+
+- id: layout-06-onboarding-welcome
+  type: layout
+  prompt: >
+    Create a standalone interface called TEST_OnboardingWelcome.
+    A new user welcome page. BILLBOARD header with image
+    "https://images.unsplash.com/photo-1497366216548-37526070297c",
+    title "Welcome to Acme Platform", subtitle "Let's get you set up in
+    3 easy steps". Body: a columns container with 3 equal-width items, each
+    is a card container (all STANDARD style) with a stamp leaf (icon "circle",
+    different color per card: #3498db, #2ecc71, #e74c3c) and a heading leaf
+    (Step 1: Connect / Step 2: Configure / Step 3: Launch) and a
+    richTextBlock leaf with a 1-sentence description of each step.
+  covers:
+    - BILLBOARD headerKind with image
+    - columns with 3 cards
+    - stamp + heading + richTextBlock vertical stack
+    - multiple card containers
+
+- id: layout-07-faq-accordion
+  type: layout
+  prompt: >
+    Create a standalone interface called TEST_FAQPage.
+    An FAQ page (no header, bare fragment). Root is a single card container
+    (STANDARD) containing a tabs container with 4 tabs: "Getting Started",
+    "Billing", "Technical", "Account". Each tab contains a keyValueList
+    leaf where the labels are questions and the values are answers. "Getting
+    Started" has 4 Q&A pairs, "Billing" has 3, "Technical" has 3, "Account"
+    has 3.
+  covers:
+    - nested containers (card > tabs)
+    - tabs with keyValueList in each
+    - many keyValueList items
+    - Q&A / FAQ domain
+
+- id: layout-08-product-showcase
+  type: layout
+  prompt: >
+    Create a standalone interface called TEST_ProductShowcase.
+    A product showcase landing page. HERO header with title "Summer Collection
+    2024" and subtitle "Discover our latest styles". Body: first a columns
+    container with 2 items — a richTextBlock leaf (promotional text about the
+    collection) and a kpis leaf (3 items: New Arrivals 48, Categories 12, On
+    Sale 15, no icons). Then a cardGroup container (cardWidth MEDIUM_PLUS) with
+    4 imageCard leaves for products, each with image from
+    "https://picsum.photos/400/300?random=N", product name heading, price as
+    text, and "Shop Now" link.
+  covers:
+    - HERO header
+    - columns with richTextBlock + kpis
+    - cardGroup with specific cardWidth
+    - imageCard with links
+    - retail/ecommerce domain
+
+# -----------------------------------------------------------------------------
+# RECORD-VIEW with layout tree — escape hatch for complex record views
+# -----------------------------------------------------------------------------
+
+- id: record-view-04-with-layout
+  type: record-view
+  prompt: >
+    Create a standalone interface called TEST_ProjectDetail.
+    A project detail record view for "Project Atlas". Key attributes: Status
+    (Active, tag with Active=POSITIVE/On Hold=SECONDARY/Completed=ACCENT/
+    Cancelled=NEGATIVE), Phase (Development), Priority (High), Start Date
+    (2024-01-15). Section "Overview" with fields: description (paragraph),
+    project manager, team size, budget. Section "Timeline" with fields:
+    planned end date, actual progress, last milestone. Then a layout section
+    with a columns container: left column has a chart leaf (pie chart "Budget
+    Allocation" with Engineering 40%, Design 25%, QA 20%, PM 15%), right
+    column has a kpis leaf (3 items: Sprint Velocity 34, Bugs Open 12,
+    Test Coverage 87%).
+  covers:
+    - record-view + layout hybrid
+    - sections AND layout tree in same view
+    - chart leaf (pie) in layout
+    - kpis leaf in layout
+    - columns in layout section
+
+# -----------------------------------------------------------------------------
+# CROSS-CUTTING — tests that specifically target edge cases / coverage gaps
+# -----------------------------------------------------------------------------
+
+- id: form-06-all-field-types
+  type: form
+  prompt: >
+    Create a standalone interface called TEST_AllFieldTypes.
+    A form demonstrating every field type. Section "Text Inputs": full name
+    (text), bio (paragraph), formatted notes (richtext), personal email
+    (email type), work phone (phone type), password (encrypted). Section
+    "Numbers & Dates": age (number/integer), salary (decimal), birth date
+    (date), meeting time (time), interview datetime (datetime). Section
+    "Selection": priority (dropdown: Low/Medium/High/Critical), status (radio:
+    Active/Inactive/Pending), features (checkbox: WiFi/Bluetooth/GPS/NFC),
+    plan tier (card choice bar-stacked template: Free/Pro/Enterprise, single
+    select). Section "Special": notifications enabled (toggle), accept terms
+    (boolean), point of contact (user picker), review team (group picker),
+    supporting docs (file upload).
+  covers:
+    - ALL field types in one form
+    - cardchoice BAR_STACKED template
+    - richtext (styledTextEditor)
+    - time field
+    - comprehensive coverage test
+
+- id: grid-05-all-column-types
+  type: grid
+  prompt: >
+    Create a standalone interface called TEST_AllColumnTypes.
+    A grid showcasing every column type. Columns: Task Name (primary,
+    MEDIUM_PLUS), Assignee (text, MEDIUM), Status (tag, NARROW_PLUS,
+    colors: Done=POSITIVE, In Progress=ACCENT, Blocked=NEGATIVE,
+    To Do=SECONDARY), Completion (progressBar, NARROW_PLUS), Photo
+    (image, ICON_PLUS), Actions (buttonArray, NARROW_PLUS). 5 sample rows
+    with realistic task management data. Filter for Status.
+  covers:
+    - ALL grid column types (primary, text, tag, progressBar, image, buttonArray)
+    - ICON_PLUS width for image column
+    - comprehensive grid coverage
+
+- id: dashboard-05-all-chart-types
+  type: dashboard
+  prompt: >
+    Create a standalone interface called TEST_AllChartTypes.
+    A dashboard demonstrating every chart type. KPIs section: 3 cards (Total
+    Sales $1.2M, Orders 3.4K, Customers 890). Then a columns section with
+    a column chart "By Quarter" (Q1-Q4, 2 series) and a line chart "Monthly
+    Trend" (6 months, 1 series). Then another columns section with a bar
+    chart "By Region" (5 regions) and an area chart "Daily Volume" (7 days).
+    Then a pie chart "Market Share" (5 segments). No embedded grid.
+  covers:
+    - ALL chart types (column, line, bar, area, pie)
+    - multi-series chart
+    - multiple columns sections
+    - standalone pie section
+    - 5 distinct chart sections total
+
+- id: layout-09-all-leaves
+  type: layout
+  prompt: >
+    Create a standalone interface called TEST_AllLeaves.
+    A layout page (PLAIN_CARD header "Component Showcase", subtitle "Every
+    leaf type demonstrated") with body structured as tabs container. Tab
+    "Data": columns with a grid leaf (3 columns, 3 rows) and a chart leaf
+    (column chart, 4 categories). Tab "Metrics": a kpis leaf (4 items) then
+    a keyValueList leaf (5 items). Tab "Content": a heading leaf ("Section
+    Title", LARGE), a richTextBlock leaf (paragraph of text), a tagGroup leaf
+    (6 tags with mixed colors), then an itemList leaf (4 items, text avatars,
+    text trailing). Tab "Visual": a banner leaf (severity INFO, with heading
+    and text), then a sideBySide with stamp leaf (MINIMIZE) and heading, then
+    a cardGroup of 3 imageCard leaves with photos from picsum.photos.
+  covers:
+    - ALL leaf types in one interface
+    - tabs as top-level container
+    - mixed containers within tabs
+    - comprehensive layout coverage
+
+- id: pane-04-all-content-types
+  type: pane
+  prompt: >
+    Create a standalone interface called TEST_AllPaneContent.
+    A pane layout demonstrating all content types. Left pane (NARROW, dark
+    #1e272e): nav with 5 items (Overview, Metrics, Data, Chart, Empty). Middle
+    pane (AUTO): grid content with columns Name (primary, MEDIUM), Category
+    (text, MEDIUM), Score (text, NARROW_PLUS). 4 rows. Right pane (MEDIUM,
+    light #f5f6fa): detail content with 4 label/value fields. Header subtitle:
+    "Content type showcase".
+  covers:
+    - pane with nav + grid + detail (all main content types)
+    - 3 panes with explicit widths
+    - dark and light backgrounds
