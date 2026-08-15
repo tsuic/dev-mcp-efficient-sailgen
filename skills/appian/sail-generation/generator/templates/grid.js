@@ -336,6 +336,7 @@ ${rowsSail}
 ${renderPageFrame({
     title,
     headerKind: def.headerKind,
+    headerSubtitle: def.headerSubtitle,
     headerImage: def.headerImage,
     headerRight: newButton,
     body,
@@ -390,6 +391,7 @@ a!localVariables(
 ${renderPageFrame({
     title,
     headerKind: def.headerKind,
+    headerSubtitle: def.headerSubtitle,
     headerImage: def.headerImage,
     headerRight: newButton,
     body,

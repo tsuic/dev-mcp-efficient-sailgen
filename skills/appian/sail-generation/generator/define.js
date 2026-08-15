@@ -1493,6 +1493,9 @@ function validateRecordViewDefinition(def, errors) {
     // validateNode has no dataBinding context to do this itself (same
     // reason fieldRef cross-checking happens here rather than per-field).
     validateLayoutTreeCollectionRefs(def.layout, "layout", def.dataBinding, errors);
+    // Cross-check: recordActionField leaves require a record-backed definition.
+    const isRecordBacked = !!def.dataBinding || !!def.dataSource;
+    validateLayoutTreeRecordActions(def.layout, "layout", isRecordBacked, errors);
   } else if (def.layoutLabel !== undefined) {
     errors.push('"layoutLabel" requires "layout" to be present');
   }
@@ -1522,6 +1525,25 @@ function validateLayoutTreeCollectionRefs(node, context, dataBinding, errors) {
   }
 }
 
+/**
+ * Cross-check: "recordActionField" leaves require a record-backed definition.
+ * a!recordActionField renders real recordType!{uuid}.actions.key references —
+ * it cannot appear in mockup definitions that have no dataBinding/dataSource.
+ * Recurses through layout-tree nodes to find offending leaves.
+ */
+function validateLayoutTreeRecordActions(node, context, isRecordBacked, errors) {
+  if (!node || typeof node !== "object") return;
+  if (node.layout) {
+    (node.items || []).forEach((item, ii) => validateLayoutTreeRecordActions(item, `${context}.items[${ii}]`, isRecordBacked, errors));
+    return;
+  }
+  if (node.leaf === "recordActionField") {
+    if (!isRecordBacked) {
+      errors.push(`${context}: "recordActionField" requires a record-backed definition (dataBinding or dataSource must be present) — a!recordActionField references real record type actions and cannot work in mockup/non-live definitions`);
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Schema validation
 // ---------------------------------------------------------------------------
@@ -1529,7 +1551,7 @@ const VALID_TYPES = [
   "text", "email", "phone", "number", "decimal",
   "paragraph", "richtext",
   "date", "datetime", "time",
-  "dropdown", "radio", "checkbox", "cardchoice",
+  "dropdown", "multipleDropdown", "radio", "checkbox", "cardchoice",
   "boolean", "toggle",
   "fileupload", "userpicker", "grouppicker",
   "encrypted",
@@ -1554,6 +1576,8 @@ function validateLayoutDefinition(def, errors) {
     return;
   }
   validateLayoutTreeNode(def.root, "root", errors);
+  // Layout-type definitions are never record-backed — reject recordActionField leaves.
+  validateLayoutTreeRecordActions(def.root, "root", false, errors);
 }
 
 function validateDefinition(def) {
@@ -1787,6 +1811,7 @@ module.exports = {
   validateGridColumnsAndRows,
   validateKpisItems,
   validateChartFields,
+  validateIcon,
   validateLayoutTreeNode,
   validateDataBindingBlock,
   validateItemFieldsMapping,

@@ -42,12 +42,27 @@ function toLocalVar(name) {
 // Field renderer — produces the SAIL component string for one field
 // ---------------------------------------------------------------------------
 
+/**
+ * Builds optional parameter lines shared across most input components.
+ * Returns an array of formatted lines (without trailing commas on last item —
+ * callers splice these into their line arrays before the closing paren).
+ */
+function optionalFieldParams(field, indent) {
+  const i = indent;
+  const lines = [];
+  if (field.instructions) lines.push(`${i}  instructions: "${field.instructions}",`);
+  if (field.helpTooltip) lines.push(`${i}  helpTooltip: "${field.helpTooltip}",`);
+  if (field.readOnly) lines.push(`${i}  readOnly: true(),`);
+  return lines;
+}
+
 function renderField(field, varName, indent) {
   const i = indent;
   const label = field.label || toTitleCase(field.name);
   const type = field.type || "text";
   const required = field.required ? "true()" : "false()";
   const placeholder = field.placeholder ? `\n${i}  placeholder: "${field.placeholder}",` : "";
+  const optParams = optionalFieldParams(field, i);
 
   switch (type) {
     case "number":
@@ -58,6 +73,7 @@ function renderField(field, varName, indent) {
         ...(placeholder ? [`${i}  placeholder: "${field.placeholder}",`] : []),
         `${i}  value: ${varName},`,
         `${i}  saveInto: ${varName},`,
+        ...optParams,
         `${i}  required: ${required},`,
         `${i}  refreshAfter: "UNFOCUS"`,
         `${i})`,
@@ -76,6 +92,7 @@ function renderField(field, varName, indent) {
         `${i}  value: ${varName},`,
         `${i}  saveInto: ${varName},`,
         ...(ip ? [`${i}  inputPurpose: "${ip}",`] : []),
+        ...optParams,
         `${i}  required: ${required},`,
         `${i}  refreshAfter: "UNFOCUS"`,
         `${i})`,
@@ -89,11 +106,13 @@ function renderField(field, varName, indent) {
         `${i}  labelPosition: "ABOVE",`,
         `${i}  value: ${varName},`,
         `${i}  saveInto: ${varName},`,
+        ...optParams,
         `${i}  required: ${required}`,
         `${i})`,
       ].join("\n");
 
-    case "paragraph":
+    case "paragraph": {
+      const paraHeight = field.height || "SHORT";
       return [
         `${i}a!paragraphField(`,
         `${i}  label: "${label}",`,
@@ -101,9 +120,11 @@ function renderField(field, varName, indent) {
         ...(placeholder ? [placeholder.trimStart().replace(/^/, `${i}  `)] : []),
         `${i}  value: ${varName},`,
         `${i}  saveInto: ${varName},`,
-        `${i}  height: "SHORT"`,
+        ...optParams,
+        `${i}  height: "${paraHeight}"`,
         `${i})`,
       ].join("\n");
+    }
 
     case "date":
       return [
@@ -112,6 +133,7 @@ function renderField(field, varName, indent) {
         `${i}  labelPosition: "ABOVE",`,
         `${i}  value: ${varName},`,
         `${i}  saveInto: ${varName},`,
+        ...optParams,
         `${i}  required: ${required}`,
         `${i})`,
       ].join("\n");
@@ -123,6 +145,7 @@ function renderField(field, varName, indent) {
         `${i}  labelPosition: "ABOVE",`,
         `${i}  value: ${varName},`,
         `${i}  saveInto: ${varName},`,
+        ...optParams,
         `${i}  required: ${required}`,
         `${i})`,
       ].join("\n");
@@ -140,6 +163,7 @@ function renderField(field, varName, indent) {
         `${i}  choiceValues: {${valuesStr}},`,
         `${i}  value: ${varName},`,
         `${i}  saveInto: ${varName},`,
+        ...optParams,
         `${i}  required: ${required}`,
         `${i})`,
       ].join("\n");
@@ -163,6 +187,7 @@ function renderField(field, varName, indent) {
         `${i}  value: ${varName},`,
         `${i}  saveInto: ${varName},`,
         `${i}  choiceLayout: "COMPACT",`,
+        ...optParams,
         `${i}  required: ${required}`,
         `${i})`,
       ].join("\n");
@@ -179,7 +204,9 @@ function renderField(field, varName, indent) {
         `${i}  choiceLabels: {${labelsStr}},`,
         `${i}  choiceValues: {${valuesStr}},`,
         `${i}  value: ${varName},`,
-        `${i}  saveInto: ${varName}`,
+        `${i}  saveInto: ${varName},`,
+        ...optParams,
+        `${i}  required: ${required}`,
         `${i})`,
       ].join("\n");
     }
@@ -192,6 +219,7 @@ function renderField(field, varName, indent) {
         ...(placeholder ? [`${i}  placeholder: "${field.placeholder}",`] : []),
         `${i}  value: ${varName},`,
         `${i}  saveInto: ${varName},`,
+        ...optParams,
         `${i}  required: ${required},`,
         `${i}  refreshAfter: "UNFOCUS"`,
         `${i})`,
@@ -204,20 +232,24 @@ function renderField(field, varName, indent) {
         `${i}  labelPosition: "ABOVE",`,
         `${i}  value: ${varName},`,
         `${i}  saveInto: ${varName},`,
+        ...optParams,
         `${i}  required: ${required}`,
         `${i})`,
       ].join("\n");
 
-    case "richtext":
+    case "richtext": {
+      const rteHeight = field.height || "SHORT";
       return [
         `${i}a!styledTextEditorField(`,
         `${i}  label: "${label}",`,
         `${i}  labelPosition: "ABOVE",`,
         `${i}  value: ${varName},`,
         `${i}  saveInto: ${varName},`,
-        `${i}  height: "SHORT"`,
+        ...optParams,
+        `${i}  height: "${rteHeight}"`,
         `${i})`,
       ].join("\n");
+    }
 
     case "cardchoice": {
       const choices = field.choices || [];
@@ -244,6 +276,7 @@ function renderField(field, varName, indent) {
         `${i}  ),`,
         `${i}  value: ${varName},`,
         `${i}  saveInto: ${varName},${maxSel}`,
+        ...optParams,
         `${i}  required: ${required}`,
         `${i})`,
       ].join("\n");
@@ -258,6 +291,7 @@ function renderField(field, varName, indent) {
         `${i}  target: null,`,
         `${i}  value: ${varName},`,
         `${i}  saveInto: ${varName},`,
+        ...optParams,
         `${i}  required: ${required}`,
         `${i})`,
       ].join("\n");
@@ -269,6 +303,7 @@ function renderField(field, varName, indent) {
         `${i}  labelPosition: "ABOVE",`,
         `${i}  value: ${varName},`,
         `${i}  saveInto: ${varName},`,
+        ...optParams,
         `${i}  required: ${required}`,
         `${i})`,
       ].join("\n");
@@ -280,6 +315,7 @@ function renderField(field, varName, indent) {
         `${i}  labelPosition: "ABOVE",`,
         `${i}  value: ${varName},`,
         `${i}  saveInto: ${varName},`,
+        ...optParams,
         `${i}  required: ${required}`,
         `${i})`,
       ].join("\n");
@@ -302,6 +338,25 @@ function renderField(field, varName, indent) {
         `${i})`,
       ].join("\n");
 
+    case "multipleDropdown": {
+      const choices = field.choices || [];
+      const labelsStr = choices.map((c) => `"${c.label}"`).join(", ");
+      const valuesStr = choices.map((c) => `"${c.value}"`).join(", ");
+      return [
+        `${i}a!multipleDropdownField(`,
+        `${i}  label: "${label}",`,
+        `${i}  labelPosition: "ABOVE",`,
+        `${i}  placeholder: "${field.placeholder || `Select ${label}...`}",`,
+        `${i}  choiceLabels: {${labelsStr}},`,
+        `${i}  choiceValues: {${valuesStr}},`,
+        `${i}  value: ${varName},`,
+        `${i}  saveInto: ${varName},`,
+        ...optParams,
+        `${i}  required: ${required}`,
+        `${i})`,
+      ].join("\n");
+    }
+
     default:
       return [
         `${i}a!textField(`,
@@ -309,6 +364,7 @@ function renderField(field, varName, indent) {
         `${i}  labelPosition: "ABOVE",`,
         `${i}  value: ${varName},`,
         `${i}  saveInto: ${varName},`,
+        ...optParams,
         `${i}  required: ${required},`,
         `${i}  refreshAfter: "UNFOCUS"`,
         `${i})`,

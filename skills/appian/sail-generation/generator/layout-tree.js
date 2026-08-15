@@ -460,14 +460,28 @@ registerLeaf("stamp", {
     if (node.color && !/^#[0-9A-Fa-f]{6}$/.test(node.color)) {
       errors.push(`${context}: "color" must be a hex color, got: ${JSON.stringify(node.color)}`);
     }
+    if (node.icon) {
+      const { validateIcon } = require("./define");
+      validateIcon(node.icon, `${context}.icon`, errors);
+    }
   },
   render(node, indent) {
     const i = indent;
     const icon = node.icon || "circle";
     const color = node.color || STAMP_DEFAULT_COLOR;
-    const textParam = node.text ? `\n${i}  text: ${toSailValue(node.text)},` : "";
-    const labelPos = node.text ? "" : `\n${i}  labelPosition: "COLLAPSED",`;
-    return `${i}a!stampField(${textParam}\n${i}  icon: "${icon}",\n${i}  backgroundColor: "${color}",\n${i}  contentColor: "#FFFFFF",\n${i}  size: "SMALL",\n${i}  shape: "ROUNDED"${labelPos}\n${i})`;
+    // Built as a joined list rather than interpolated fragments: the optional
+    // text/labelPosition params sit at opposite ends of the call, so hand-placed
+    // commas silently produced "shape: "ROUNDED"\n  labelPosition: ...," —
+    // a missing separator plus a trailing comma — on every icon-only stamp.
+    const params = [];
+    if (node.text) params.push(`text: ${toSailValue(node.text)}`);
+    params.push(`icon: "${icon}"`);
+    params.push(`backgroundColor: "${color}"`);
+    params.push(`contentColor: "#FFFFFF"`);
+    params.push(`size: "SMALL"`);
+    params.push(`shape: "ROUNDED"`);
+    if (!node.text) params.push(`labelPosition: "COLLAPSED"`);
+    return `${i}a!stampField(\n${params.map((p) => `${i}  ${p}`).join(",\n")}\n${i})`;
   },
   renderSkeleton(node, indent) {
     const i = indent;
@@ -762,7 +776,7 @@ ${i})`;
 // CONTAINER TYPES
 // =============================================================================
 
-const CONTAINER_TYPES = ["columns", "cardGroup", "sideBySide", "tabs", "card"];
+const CONTAINER_TYPES = ["columns", "cardGroup", "sideBySide", "tabs", "card", "box"];
 
 // a!sideBySideItem's width enum — deliberately NOT the same vocabulary as
 // a!columnLayout (no NARROW/MEDIUM/WIDE — using those raises a runtime error).
@@ -777,6 +791,235 @@ const COLUMN_LAYOUT_WIDTHS = [
   "1X", "2X", "3X", "4X", "5X", "6X", "7X", "8X", "9X", "10X",
 ];
 const COLUMN_LAYOUT_FIXED_WIDTHS = new Set(["EXTRA_NARROW", "NARROW", "NARROW_PLUS", "MEDIUM", "MEDIUM_PLUS", "WIDE", "WIDE_PLUS", "EXTRA_WIDE"]);
+
+// ---------------------------------------------------------------------------
+// New leaf: milestone — process step indicator (a!milestoneField). Renders a
+// horizontal or vertical milestone bar showing which step is active. Common in
+// record summary views for lifecycle/workflow status.
+// ---------------------------------------------------------------------------
+const MILESTONE_ORIENTATIONS = ["HORIZONTAL", "VERTICAL"];
+const MILESTONE_STYLES = ["LINE", "CHEVRON", "DOT"];
+
+registerLeaf("milestone", {
+  validate(node, context, errors) {
+    if (!Array.isArray(node.steps) || node.steps.length < 2) {
+      errors.push(`${context}: "steps" must be an array with at least 2 labels`);
+    }
+    if (node.active !== undefined && (typeof node.active !== "number" || node.active < 1)) {
+      errors.push(`${context}: "active" must be a positive integer (1-based step index)`);
+    }
+    if (node.orientation && !MILESTONE_ORIENTATIONS.includes(node.orientation)) {
+      errors.push(`${context}: "orientation" must be one of [${MILESTONE_ORIENTATIONS.join(", ")}], got: ${JSON.stringify(node.orientation)}`);
+    }
+    if (node.stepStyle && !MILESTONE_STYLES.includes(node.stepStyle)) {
+      errors.push(`${context}: "stepStyle" must be one of [${MILESTONE_STYLES.join(", ")}], got: ${JSON.stringify(node.stepStyle)}`);
+    }
+  },
+  render(node, indent) {
+    const i = indent;
+    const active = node.active || 1;
+    const orientation = node.orientation || "HORIZONTAL";
+    const stepStyle = node.stepStyle || "LINE";
+    const stepsStr = node.steps.map((s) => `"${s}"`).join(", ");
+    const labelLine = node.label ? `\n${i}  label: "${node.label}",` : `\n${i}  labelPosition: "COLLAPSED",`;
+    return `${i}a!milestoneField(${labelLine}
+${i}  steps: {${stepsStr}},
+${i}  active: ${active},
+${i}  orientation: "${orientation}",
+${i}  stepStyle: "${stepStyle}"
+${i})`;
+  },
+  renderSkeleton(node, indent) {
+    const i = indent;
+    return `${i}a!milestoneField(\n${i}  labelPosition: "COLLAPSED",\n${i}  steps: {},\n${i}  active: 1\n${i})`;
+  },
+  collectVarDecls() {
+    return "";
+  },
+});
+
+// ---------------------------------------------------------------------------
+// New leaf: gauge — circular progress indicator (a!gaugeField). Common in
+// dashboards and KPI areas to show completion/utilization percentages.
+// ---------------------------------------------------------------------------
+const GAUGE_SIZES = ["SMALL", "MEDIUM", "LARGE"];
+const GAUGE_COLORS = ["ACCENT", "POSITIVE", "NEGATIVE", "WARN"];
+
+registerLeaf("gauge", {
+  validate(node, context, errors) {
+    if (node.percentage === undefined || typeof node.percentage !== "number") {
+      errors.push(`${context}: "percentage" (number 0-100) is required`);
+    }
+    if (node.size && !GAUGE_SIZES.includes(node.size)) {
+      errors.push(`${context}: "size" must be one of [${GAUGE_SIZES.join(", ")}], got: ${JSON.stringify(node.size)}`);
+    }
+    if (node.color && !GAUGE_COLORS.includes(node.color) && !/^#[0-9A-Fa-f]{6}$/.test(node.color)) {
+      errors.push(`${context}: "color" must be one of [${GAUGE_COLORS.join(", ")}] or a hex color, got: ${JSON.stringify(node.color)}`);
+    }
+  },
+  render(node, indent) {
+    const i = indent;
+    const percentage = node.percentage;
+    const primaryText = node.primaryText || `${percentage}%`;
+    const secondaryText = node.secondaryText || "";
+    const color = node.color || "ACCENT";
+    const size = node.size || "MEDIUM";
+    const labelLine = node.label
+      ? `${i}  label: "${node.label}",\n`
+      : `${i}  labelPosition: "COLLAPSED",\n`;
+    const secondaryLine = secondaryText ? `\n${i}  secondaryText: "${secondaryText}",` : "";
+    return `${i}a!gaugeField(\n${labelLine}${i}  percentage: ${percentage},
+${i}  primaryText: "${primaryText}",${secondaryLine}
+${i}  color: "${color}",
+${i}  size: "${size}"
+${i})`;
+  },
+  renderSkeleton(node, indent) {
+    const i = indent;
+    return `${i}a!gaugeField(\n${i}  labelPosition: "COLLAPSED",\n${i}  percentage: 0,\n${i}  primaryText: "0%",\n${i}  size: "MEDIUM"\n${i})`;
+  },
+  collectVarDecls() {
+    return "";
+  },
+});
+
+// ---------------------------------------------------------------------------
+// New leaf: horizontalLine — simple divider (a!horizontalLine). Useful for
+// visual separation between content blocks without the weight of a section.
+// ---------------------------------------------------------------------------
+const LINE_COLORS = ["SECONDARY", "STANDARD", "ACCENT"];
+const LINE_WEIGHTS = ["THIN", "MEDIUM", "THICK"];
+const LINE_STYLES = ["SOLID", "DOT", "DASH"];
+
+registerLeaf("horizontalLine", {
+  validate(node, context, errors) {
+    if (node.color && !LINE_COLORS.includes(node.color) && !/^#[0-9A-Fa-f]{6}$/.test(node.color)) {
+      errors.push(`${context}: "color" must be one of [${LINE_COLORS.join(", ")}] or a hex color, got: ${JSON.stringify(node.color)}`);
+    }
+    if (node.weight && !LINE_WEIGHTS.includes(node.weight)) {
+      errors.push(`${context}: "weight" must be one of [${LINE_WEIGHTS.join(", ")}], got: ${JSON.stringify(node.weight)}`);
+    }
+    if (node.style && !LINE_STYLES.includes(node.style)) {
+      errors.push(`${context}: "style" must be one of [${LINE_STYLES.join(", ")}], got: ${JSON.stringify(node.style)}`);
+    }
+  },
+  render(node, indent) {
+    const i = indent;
+    const color = node.color || "SECONDARY";
+    const weight = node.weight || "THIN";
+    const style = node.style || "SOLID";
+    return `${i}a!horizontalLine(\n${i}  color: "${color}",\n${i}  weight: "${weight}",\n${i}  style: "${style}"\n${i})`;
+  },
+  renderSkeleton(node, indent) {
+    const i = indent;
+    return `${i}a!horizontalLine(\n${i}  color: "SECONDARY",\n${i}  weight: "THIN"\n${i})`;
+  },
+  collectVarDecls() {
+    return "";
+  },
+});
+
+// ---------------------------------------------------------------------------
+// New leaf: recordActionField — displays record actions (a!recordActionField).
+//
+// CONSTRAINT: Only valid in record-backed definitions (live record-view or
+// live dashboard with dataBinding/dataSource). The definition-level
+// cross-check lives in define.js — this leaf's validate() only checks
+// structural correctness of the actions array.
+//
+// Each action item requires:
+//   - actionRef: the full recordType!{uuid}Name.actions.key reference
+//   - identifier (optional): expression for the record identifier; required
+//     for related actions, omitted for list actions
+// ---------------------------------------------------------------------------
+const RECORD_ACTION_STYLES = ["TOOLBAR", "LINKS", "CARDS", "SIDEBAR", "CALL_TO_ACTION", "MENU", "MENU_ICON", "TOOLBAR_PRIMARY", "SIDEBAR_PRIMARY"];
+const RECORD_ACTION_DISPLAYS = ["LABEL", "ICON", "LABEL_AND_ICON"];
+const RECORD_ACTION_OPENS = ["DIALOG", "NEW_TAB", "SAME_TAB"];
+
+registerLeaf("recordActionField", {
+  validate(node, context, errors) {
+    if (!Array.isArray(node.actions) || node.actions.length === 0) {
+      errors.push(`${context}: "actions" must be a non-empty array of { actionRef, identifier? }`);
+      return;
+    }
+    node.actions.forEach((action, ai) => {
+      const ac = `${context}.actions[${ai}]`;
+      if (!action.actionRef || typeof action.actionRef !== "string") {
+        errors.push(`${ac}: "actionRef" is required (e.g. "recordType!{uuid}Name.actions.key")`);
+      }
+    });
+    if (node.style && !RECORD_ACTION_STYLES.includes(node.style)) {
+      errors.push(`${context}: "style" must be one of [${RECORD_ACTION_STYLES.join(", ")}], got: ${JSON.stringify(node.style)}`);
+    }
+    if (node.display && !RECORD_ACTION_DISPLAYS.includes(node.display)) {
+      errors.push(`${context}: "display" must be one of [${RECORD_ACTION_DISPLAYS.join(", ")}], got: ${JSON.stringify(node.display)}`);
+    }
+    if (node.openActionsIn && !RECORD_ACTION_OPENS.includes(node.openActionsIn)) {
+      errors.push(`${context}: "openActionsIn" must be one of [${RECORD_ACTION_OPENS.join(", ")}], got: ${JSON.stringify(node.openActionsIn)}`);
+    }
+  },
+  render(node, indent) {
+    const i = indent;
+    const style = node.style || "TOOLBAR";
+    const display = node.display || "LABEL_AND_ICON";
+    const openIn = node.openActionsIn || "DIALOG";
+
+    const actionsStr = node.actions.map((action) => {
+      const idLine = action.identifier
+        ? `,\n${i}      identifier: ${action.identifier}`
+        : "";
+      return `${i}    a!recordActionItem(\n${i}      action: '${action.actionRef}'${idLine}\n${i}    )`;
+    }).join(",\n");
+
+    return `${i}a!recordActionField(
+${i}  actions: {
+${actionsStr}
+${i}  },
+${i}  style: "${style}",
+${i}  display: "${display}",
+${i}  openActionsIn: "${openIn}"
+${i})`;
+  },
+  renderSkeleton(node, indent) {
+    const i = indent;
+    return `${i}a!recordActionField(\n${i}  actions: {},\n${i}  style: "TOOLBAR"\n${i})`;
+  },
+  collectVarDecls() {
+    return "";
+  },
+});
+
+// ---------------------------------------------------------------------------
+// New leaf: linkField — displays one or more clickable links (a!linkField).
+// ---------------------------------------------------------------------------
+registerLeaf("linkField", {
+  validate(node, context, errors) {
+    if (!Array.isArray(node.links) || node.links.length === 0) {
+      errors.push(`${context}: "links" must be a non-empty array of { text, ... }`);
+      return;
+    }
+    node.links.forEach((link, li) => {
+      if (!link.text) errors.push(`${context}.links[${li}]: "text" is required`);
+    });
+  },
+  render(node, indent) {
+    const i = indent;
+    const labelLine = node.label
+      ? `${i}  label: "${node.label}",\n`
+      : `${i}  labelPosition: "COLLAPSED",\n`;
+    const linksStr = node.links.map((link) =>
+      `${i}    a!safeLink(label: ${toSailValue(link.text)}, uri: ${toSailValue(link.uri || "#")})`
+    ).join(",\n");
+    return `${i}a!linkField(\n${labelLine}${i}  links: {\n${linksStr}\n${i}  }\n${i})`;
+  },
+  renderSkeleton(node, indent) {
+    const i = indent;
+    return `${i}a!linkField(\n${i}  labelPosition: "COLLAPSED",\n${i}  links: {}\n${i})`;
+  },
+  collectVarDecls() {
+    return "";
+  },
+});
 
 // a!cardGroupLayout's cardWidth enum — applies to the WHOLE group, not per card.
 const CARD_GROUP_WIDTHS = ["EXTRA_NARROW", "NARROW", "NARROW_PLUS", "MEDIUM", "MEDIUM_PLUS", "WIDE", "WIDE_PLUS"];
@@ -829,7 +1072,7 @@ function validateNode(node, context, errors) {
       }
       return;
     }
-    const minItems = node.layout === "sideBySide" ? 2 : node.layout === "tabs" ? 2 : node.layout === "cardGroup" ? 1 : node.layout === "card" ? 1 : node.layout === "columns" ? 1 : 2;
+    const minItems = node.layout === "sideBySide" ? 2 : node.layout === "tabs" ? 2 : node.layout === "cardGroup" ? 1 : node.layout === "card" ? 1 : node.layout === "box" ? 1 : node.layout === "columns" ? 1 : 2;
     if (!Array.isArray(node.items) || node.items.length < minItems) {
       errors.push(`${context}: "${node.layout}" requires at least ${minItems} item(s) in "items"`);
       return;
@@ -869,6 +1112,19 @@ function validateNode(node, context, errors) {
       const style = node.style || node.headerColor;
       if (style !== undefined && !isValidCardStyle(style)) {
         errors.push(`${context}: "style"/"headerColor" must be a card style keyword [${CARD_STYLE_VALUES.join(", ")}], an alias [${Object.keys(CARD_STYLE_ALIASES).join(", ")}], or a hex color, got: ${JSON.stringify(style)}`);
+      }
+      const VALID_BAR_POSITIONS = ["TOP", "BOTTOM", "START", "END"];
+      if (node.decorativeBarPosition && !VALID_BAR_POSITIONS.includes(node.decorativeBarPosition)) {
+        errors.push(`${context}: "decorativeBarPosition" must be one of [${VALID_BAR_POSITIONS.join(", ")}], got: ${JSON.stringify(node.decorativeBarPosition)}`);
+      }
+    }
+    if (node.layout === "box") {
+      if (!node.label) {
+        errors.push(`${context}: "label" is required for "box" layout`);
+      }
+      const VALID_BOX_STYLES = ["STANDARD", "ACCENT", "SUCCESS", "INFO", "WARN", "ERROR"];
+      if (node.style && !VALID_BOX_STYLES.includes(node.style) && !/^#[0-9A-Fa-f]{6}$/.test(node.style)) {
+        errors.push(`${context}: "style" must be one of [${VALID_BOX_STYLES.join(", ")}] or a hex color, got: ${JSON.stringify(node.style)}`);
       }
     }
     node.items.forEach((item, ii) => validateNode(item, `${context}.items[${ii}]`, errors));
@@ -912,7 +1168,10 @@ function renderContainer(node, indent, state) {
         const width = item.width || "AUTO";
         return `${i}  a!columnLayout(\n${i}    width: "${width}",\n${i}    contents: {\n${inner}\n${i}    }\n${i}  )`;
       });
-      return `${i}a!columnsLayout(\n${i}  columns: {\n${cols.join(",\n")}\n${i}  },\n${i}  spacing: "STANDARD",\n${i}  marginBelow: "STANDARD"\n${i})`;
+      const stackWhen = node.stackWhen ? `\n${i}  stackWhen: {${Array.isArray(node.stackWhen) ? node.stackWhen.map(s => `"${s}"`).join(", ") : `"${node.stackWhen}"`}},` : "";
+      const marginAbove = node.marginAbove ? `\n${i}  marginAbove: "${node.marginAbove}",` : "";
+      const marginBelow = node.marginBelow || "STANDARD";
+      return `${i}a!columnsLayout(\n${i}  columns: {\n${cols.join(",\n")}\n${i}  },\n${i}  spacing: "STANDARD",${stackWhen}${marginAbove}\n${i}  marginBelow: "${marginBelow}"\n${i})`;
     }
 
     case "cardGroup": {
@@ -924,7 +1183,8 @@ function renderContainer(node, indent, state) {
         return renderNode(item, childIndent, state);
       });
       const cardWidth = node.cardWidth || "NARROW_PLUS";
-      return `${i}a!cardGroupLayout(\n${i}  cards: {\n${cards.join(",\n")}\n${i}  },\n${i}  cardWidth: "${cardWidth}",\n${i}  spacing: "STANDARD",\n${i}  marginBelow: "STANDARD"\n${i})`;
+      const marginBelow = node.marginBelow || "STANDARD";
+      return `${i}a!cardGroupLayout(\n${i}  cards: {\n${cards.join(",\n")}\n${i}  },\n${i}  cardWidth: "${cardWidth}",\n${i}  spacing: "STANDARD",\n${i}  marginBelow: "${marginBelow}"\n${i})`;
     }
 
     case "sideBySide": {
@@ -933,13 +1193,15 @@ function renderContainer(node, indent, state) {
         const width = item.width || "AUTO";
         return `${i}    a!sideBySideItem(\n${i}      item: ${inner.trim()},\n${i}      width: "${width}"\n${i}    )`;
       });
-      return `${i}a!sideBySideLayout(\n${i}  items: {\n${items.join(",\n")}\n${i}  },\n${i}  alignVertical: "MIDDLE",\n${i}  spacing: "STANDARD"\n${i})`;
+      const stackWhen = node.stackWhen ? `\n${i}  stackWhen: {${Array.isArray(node.stackWhen) ? node.stackWhen.map(s => `"${s}"`).join(", ") : `"${node.stackWhen}"`}},` : "";
+      const marginBelow = node.marginBelow ? `\n${i}  marginBelow: "${node.marginBelow}"` : "";
+      return `${i}a!sideBySideLayout(\n${i}  items: {\n${items.join(",\n")}\n${i}  },\n${i}  alignVertical: "MIDDLE",\n${i}  spacing: "STANDARD"${stackWhen}${marginBelow}\n${i})`;
     }
 
     case "tabs": {
       const tabs = node.items.map((item) => {
         const inner = renderNode(item, childIndent + "  ", state);
-        return `${i}  a!tabItem(\n${i}    title: "${item.tabLabel}",\n${i}    contents: {\n${inner}\n${i}    }\n${i}  )`;
+        return `${i}  a!tabItem(\n${i}    label: "${item.tabLabel}",\n${i}    contents: {\n${inner}\n${i}    }\n${i}  )`;
       });
       return `${i}a!tabLayout(\n${i}  tabs: {\n${tabs.join(",\n")}\n${i}  }\n${i})`;
     }
@@ -947,7 +1209,20 @@ function renderContainer(node, indent, state) {
     case "card": {
       const style = resolveCardStyle(node.style || node.headerColor);
       const contents = node.items.map((item) => renderNode(item, childIndent, state)).join(",\n");
-      return `${i}a!cardLayout(\n${i}  contents: {\n${contents}\n${i}  },\n${i}  style: "${style}",\n${i}  showBorder: true(),\n${i}  shape: "ROUNDED",\n${i}  padding: "STANDARD",\n${i}  marginBelow: "STANDARD"\n${i})`;
+      const decBarPos = node.decorativeBarPosition;
+      const decBarColor = node.decorativeBarColor;
+      const decBarLines = decBarPos
+        ? `\n${i}  decorativeBarPosition: "${decBarPos}",\n${i}  decorativeBarColor: "${decBarColor || "ACCENT"}",`
+        : "";
+      return `${i}a!cardLayout(\n${i}  contents: {\n${contents}\n${i}  },\n${i}  style: "${style}",\n${i}  showBorder: true(),\n${i}  shape: "ROUNDED",\n${i}  padding: "STANDARD",${decBarLines}\n${i}  marginBelow: "STANDARD"\n${i})`;
+    }
+
+    case "box": {
+      const boxLabel = node.label || "Section";
+      const boxStyle = node.style || "STANDARD";
+      const contents = node.items.map((item) => renderNode(item, childIndent, state)).join(",\n");
+      const collapsible = node.isCollapsible ? `\n${i}  isCollapsible: true(),` : "";
+      return `${i}a!boxLayout(\n${i}  label: "${boxLabel}",\n${i}  style: "${boxStyle}",${collapsible}\n${i}  padding: "STANDARD",\n${i}  shape: "SEMI_ROUNDED",\n${i}  showBorder: true(),\n${i}  contents: {\n${contents}\n${i}  },\n${i}  marginBelow: "STANDARD"\n${i})`;
     }
 
     default:
@@ -985,13 +1260,17 @@ function renderSkeletonNode(node, indent) {
       }
       case "tabs": {
         const tabs = node.items.map((item, idx) => {
-          return `${i}  a!tabItem(\n${i}    title: "${item.tabLabel || "Tab"}",\n${i}    contents: {\n${rendered[idx]}\n${i}    }\n${i}  )`;
+          return `${i}  a!tabItem(\n${i}    label: "${item.tabLabel || "Tab"}",\n${i}    contents: {\n${rendered[idx]}\n${i}    }\n${i}  )`;
         });
         return `${i}a!tabLayout(\n${i}  tabs: {\n${tabs.join(",\n")}\n${i}  }\n${i})`;
       }
       case "card": {
         const style = resolveCardStyle(node.style || node.headerColor);
         return `${i}a!cardLayout(\n${i}  contents: {\n${rendered.join(",\n")}\n${i}  },\n${i}  style: "${style}",\n${i}  showBorder: true(),\n${i}  shape: "ROUNDED",\n${i}  padding: "STANDARD",\n${i}  marginBelow: "STANDARD"\n${i})`;
+      }
+      case "box": {
+        const boxLabel = node.label || "Section";
+        return `${i}a!boxLayout(\n${i}  label: "${boxLabel}",\n${i}  style: "STANDARD",\n${i}  padding: "STANDARD",\n${i}  shape: "SEMI_ROUNDED",\n${i}  showBorder: true(),\n${i}  contents: {\n${rendered.join(",\n")}\n${i}  },\n${i}  marginBelow: "STANDARD"\n${i})`;
       }
     }
   }

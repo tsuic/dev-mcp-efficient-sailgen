@@ -19,12 +19,21 @@ Use `"circle"` as a placeholder for all KPI `icon` fields — the orchestrator's
 
 ## Step 1 — Write Definition JSON via CLI
 
+Never write `definition.json` directly with Write/fs_write — always go through `--write` so
+`validateDefinition` runs.
+
+**Default approach: stage the JSON in a scratch file, then pass it via a shell variable.**
+Live dashboard definitions embed SAIL string literals (e.g. `fv!row['recordType!...']`) that
+contain their own single quotes, which breaks naive `'{...json...}'` inline quoting. Don't
+hand-escape it — write the JSON to a scratch file with the Write tool, then:
+
 ```bash
-node generator/define.js --write {uuid} '{...json...}'
+json=$(cat /path/to/scratch.json)
+node generator/define.js --write {uuid} "$json"
 ```
 
-Shell-escape single quotes as `'\''`. If it fails, fix the JSON, re-run until exit 0.
-Do NOT write definition.json with Write/fs_write — always use `--write`.
+This is staging the CLI *input*, not the pipeline's own `definition.json` artifact — it still
+goes through `--write` and full validation. If `--write` fails, fix the JSON, re-run until exit 0.
 
 ## Step 2 — Scaffold
 

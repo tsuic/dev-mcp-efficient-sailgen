@@ -12,6 +12,11 @@ result to Appian via MCP tools (Step 5 below).
 **PIPELINE ROOT (absolute):** `{workspace}/skills/appian/sail-generation/`
 All shell commands (define.js, scaffold.js, validate.sh, resolve-icons.js) use this as `cwd`.
 
+**This file's own path:** `{PIPELINE ROOT}/agents/orchestrator.md`. Every other agent file
+in this directory follows the same pattern: `{PIPELINE ROOT}/agents/{name}.md`. Resolve
+directly from this — never guess a path, and never shell out to `find`/`grep`/`ls` to
+locate an agent file the dispatch table already named.
+
 ## DISCOVERING APPIAN OBJECTS
 
 **Use MCP tools, not the filesystem.** Appian objects (apps, record types, fields, relationships) live on the server — not in local files. Do NOT use `find`, `grep`, `ls`, or `cat` to look for UUIDs or record type info.
@@ -183,20 +188,23 @@ createInterface(
 
 ## IDEAL TOOL-CALL SEQUENCE
 
+0. `ToolSearch` once for the full expected toolset (discovery + conditional lookups + deploy) — not fetched reactively as each is needed
 1. MCP discovery (`listApplications`, `getRecordType` for each entity)
 2. Dispatch specialist (UUID generated inline, brief includes concrete identifiers)
 3. `node generator/resolve-icons.js {uuid} --auto` (only if placeholders > 0)
 4. `createInterface`/`updateInterface` — deploy to Appian
 
-That's 4–5 tool calls total in the parent.
+That's 5–6 tool calls total in the parent.
 
 ## ANTI-PATTERNS
 
 - **Asking the user for app UUID, interface name, or create/update choice** — look these up yourself via `listApplications` and `listInterfaces`
 - **Searching the filesystem for Appian object info** (`find`, `grep`, `ls` for UUIDs, record types, field names) — use MCP tools instead; Appian objects are on the server, not in local files
 - **Loading SKILL.md reference files** (appian-workflow-patterns.md, query-record-type-patterns.md, etc.) — the pipeline handles everything; don't load references for interface tasks
-- **Reading an existing interface's SAIL body** (`getInterface` with `expressionFilePath`) to find a pattern to mirror — the specialist generates SAIL from JSON definitions; it never needs example SAIL
+- **Calling `getInterface` on the deploy target for any reason before deploying** — whether to find a pattern to mirror, confirm it's currently blank, or check existing content. `createInterface`/`updateInterface` fully replaces the expression regardless of prior state, and `listInterfaces` already gives you the UUID needed to deploy. There is no legitimate reason to read the target interface's body first — if you catch yourself justifying it, that's the anti-pattern.
 - **Reading both the mockup and live variant** of a specialist file "to compare" — decide from Concrete Identifiers alone
+- **Listing the `agents/` directory (`ls`) to confirm a specialist file exists** — the dispatch table in Step 3 is authoritative; use the filename it gives you directly
+- **Fetching MCP tool schemas via `ToolSearch` one at a time as each is needed** — before starting discovery, batch a single `ToolSearch` call covering the full expected toolset for the task: discovery tools, any conditional lookups (e.g. `listRecordData` to verify lookup-table values), and the deploy tool (`createInterface`/`updateInterface`)
 - **Copying .sail files** to a different path before deploy (unnecessary — pass the original)
 - **Reading .sail output into context** to "verify" after validation already passed (unless Pass 3 editing is needed)
 - **Guessing the pipeline cwd** — always use `{workspace}/skills/appian/sail-generation/`

@@ -16,3 +16,6 @@ Thumbs.db
 # Claude — track skills + shared settings, ignore local settings
 .claude/settings.local.json
 .mcp.json
+
+# SAIL generation test runner output
+skills/appian/sail-generation/tests/logs/

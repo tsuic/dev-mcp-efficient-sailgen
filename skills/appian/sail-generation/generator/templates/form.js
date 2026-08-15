@@ -74,6 +74,7 @@ function renderFromDefinition(def) {
       `          a!sectionLayout(`,
       `            label: "${section.label}",`,
       `            labelColor: "STANDARD",`,
+      ...(section.isCollapsible ? [`            isCollapsible: true(),`] : []),
       `            contents: {`,
       rowsSail,
       `            }`,
