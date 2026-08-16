@@ -20,6 +20,7 @@
 
 const { toTitleCase } = require("../shared");
 const { weightToSailWidth } = require("../define");
+const { resolveTheme } = require("../theme");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -543,6 +544,7 @@ function renderReviewContents(steps, baseIndent) {
 
 function renderFromDefinition(def) {
   const { title, entityName, steps, headerIcon, headerSubtitle } = def;
+  const theme = resolveTheme(def.theme);
 
   // Collect all field variables across all steps for declarations
   const allFields = [];
@@ -608,7 +610,7 @@ function renderFromDefinition(def) {
       `            contents: {`,
       contentSail,
       `            },`,
-      `            style: "#FFFFFF",`,
+      `            style: "${theme.cardBg}",`,
       `            showBorder: true(),`,
       `            shape: "ROUNDED",`,
       `            padding: "STANDARD",`,
@@ -632,11 +634,11 @@ ${varDecls}
     titleBar: a!headerTemplateFull(
       title: "${title}",
       secondaryText: "${subtitle}",
-      backgroundColor: "#2C3E50",
-      titleColor: "#FFFFFF",
-      secondaryTextColor: "#BDC3C7",
+      backgroundColor: "${theme.headerBg}",
+      titleColor: "${theme.titleColor}",
+      secondaryTextColor: "${theme.subtitleColor}",
       stampIcon: "${icon}",
-      stampColor: "#FFFFFF"
+      stampColor: "${theme.stampContent}"
     ),
     isTitleBarFixed: false(),
     style: "${style}",

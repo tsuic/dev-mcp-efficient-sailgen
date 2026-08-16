@@ -18,6 +18,7 @@
 
 const { weightToSailWidth } = require("../define");
 const { renderField, renderRow } = require("./wizard");
+const { resolveTheme } = require("../theme");
 
 // ---------------------------------------------------------------------------
 // Definition-based render
@@ -25,6 +26,7 @@ const { renderField, renderRow } = require("./wizard");
 
 function renderFromDefinition(def) {
   const { title, entityName, sections, headerIcon, headerSubtitle } = def;
+  const theme = resolveTheme(def.theme);
 
   // Collect all field variables across all sections
   const allFields = [];
@@ -80,7 +82,7 @@ function renderFromDefinition(def) {
       `            }`,
       `          )`,
       `        },`,
-      `        style: "#FFFFFF",`,
+      `        style: "${theme.cardBg}",`,
       `        showBorder: true(),`,
       `        shape: "ROUNDED",`,
       `        padding: "STANDARD",`,
@@ -102,14 +104,14 @@ ${varDecls}
     titleBar: a!headerTemplateFull(
       title: "${title}",
       secondaryText: "${subtitle}",
-      backgroundColor: "#2C3E50",
-      titleColor: "#FFFFFF",
-      secondaryTextColor: "#BDC3C7",
+      backgroundColor: "${theme.headerBg}",
+      titleColor: "${theme.titleColor}",
+      secondaryTextColor: "${theme.subtitleColor}",
       stampIcon: "${icon}",
-      stampColor: "#FFFFFF"
+      stampColor: "${theme.stampContent}"
     ),
     contentsWidth: "${contentsWidth}",
-    backgroundColor: "#F5F6F8",
+    backgroundColor: "${theme.pageBg}",
     contents: {
 ${sectionsSail}
     },

@@ -51,7 +51,31 @@ Does the request require:
 
 Dashboards use an ordered `sections` array. Sections are rendered top-to-bottom in the order specified.
 
-Optional top-level `headerKind` picks the page-header style (the scaffold emits the SAIL — never hand-write it): `"PLAIN_CARD"` (default — colored card with title + subtitle), `"HERO"` (large centered title + subtitle band), `"BILLBOARD"` (title over a background image — also set `"headerImage"` to an image URL), or `"NONE"` (no header bar). Omit it for the standard look.
+Optional top-level `headerKind` picks the page-header style (the scaffold emits the SAIL — never hand-write it): `"PLAIN_CARD"` (default — compact colored card with title + subtitle), `"HERO"` (tall centered title + subtitle on a full-width colored band — for landing/splash pages where the title IS the visual statement), `"BILLBOARD"` (title overlaid on a background photo via Appian's `a!billboardLayout` — also set `"headerImage"` to a URL), or `"NONE"` (no header bar). Omit for the standard PLAIN_CARD look.
+
+### Theme (optional)
+
+Add a `"theme"` object ONLY when the user explicitly requests non-default colors (e.g. "dark mode", "branded", "high contrast"). Omit it entirely for the standard light look. All values must be hex `#RRGGBB`. Only include the keys you want to override — omitted keys use defaults.
+
+```json
+"theme": {
+  "headerBg":      "#1A1A2E",
+  "pageBg":        "#16213E",
+  "cardBg":        "#0F3460",
+  "titleColor":    "#E0E0E0",
+  "subtitleColor": "#A0A0A0",
+  "kpiColors":     ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6"],
+  "kpiLabelColor": "#B0B0B0",
+  "kpiValueColor": "#FFFFFF",
+  "kpiSubColor":   "#808080",
+  "chartAccent":   "#3B82F6",
+  "piePalette":    ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444"],
+  "stampBg":       "#3B82F6",
+  "stampContent":  "#FFFFFF"
+}
+```
+
+Defaults (used when no theme is provided): headerBg `#2C3E50`, pageBg `#F5F6F8`, cardBg `#FFFFFF`, titleColor `#FFFFFF`, subtitleColor `#B0BEC5`.
 
 ```json
 {

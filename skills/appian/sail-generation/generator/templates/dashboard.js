@@ -18,12 +18,12 @@ const {
   pickPrimaryColumn,
 } = require("./grid");
 const { renderPageFrame } = require("../page-frame");
+const { THEME_DEFAULTS, resolveTheme } = require("../theme");
 
 // =============================================================================
 // Constants
 // =============================================================================
 
-const KPI_DEFAULT_COLORS = ["#2C3E50", "#34495E", "#7F8C8D", "#95A5A6"];
 const CHART_COMPONENT = {
   column: "a!columnChartField",
   line: "a!lineChartField",
@@ -34,8 +34,7 @@ const CHART_COMPONENT = {
 
 // a!pieChartField has no "categories" param — each slice is its own
 // a!chartSeries(label, data: <scalar>, color). A single input series only
-// carries one color, so slices rotate through this default palette.
-const PIE_SLICE_COLORS = ["#2C3E50", "#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EF4444", "#0EA5E9", "#84CC16"];
+// carries one color, so slices rotate through the theme's piePalette.
 
 // =============================================================================
 // Live Data Helpers — resolve field aliases to full record type references
@@ -119,10 +118,10 @@ function renderFiltersBlock(filters, dataSource, indent) {
 /**
  * Render a single KPI card from a definition object.
  */
-function renderKpiCard(kpi, index, indent) {
+function renderKpiCard(kpi, index, indent, theme) {
   const i = indent;
   const icon = kpi.icon || "circle";
-  const color = kpi.color || KPI_DEFAULT_COLORS[index % KPI_DEFAULT_COLORS.length];
+  const color = kpi.color || theme.kpiColors[index % theme.kpiColors.length];
   const varName = `local!kpi${index + 1}`;
   const subVar = `local!kpi${index + 1}Sub`;
 
@@ -135,7 +134,7 @@ function renderKpiCard(kpi, index, indent) {
     `${i}          item: a!stampField(`,
     `${i}            icon: "${icon}",`,
     `${i}            backgroundColor: "${color}",`,
-    `${i}            contentColor: "#FFFFFF",`,
+    `${i}            contentColor: "${theme.stampContent}",`,
     `${i}            size: "TINY",`,
     `${i}            shape: "ROUNDED",`,
     `${i}            labelPosition: "COLLAPSED"`,
@@ -146,16 +145,16 @@ function renderKpiCard(kpi, index, indent) {
     `${i}          item: a!richTextDisplayField(`,
     `${i}            labelPosition: "COLLAPSED",`,
     `${i}            value: {`,
-    `${i}              a!richTextItem(text: "${kpi.label}", color: "#6B7280", size: "STANDARD"),`,
+    `${i}              a!richTextItem(text: "${kpi.label}", color: "${theme.kpiLabelColor}", size: "STANDARD"),`,
     `${i}              char(10),`,
     `${i}              a!richTextItem(`,
     `${i}                text: ${varName},`,
     `${i}                style: "STRONG",`,
     `${i}                size: "LARGE",`,
-    `${i}                color: "#262626"`,
+    `${i}                color: "${theme.kpiValueColor}"`,
     `${i}              ),`,
     `${i}              char(10),`,
-    `${i}              a!richTextItem(text: ${subVar}, color: "#7F8C8D", size: "SMALL")`,
+    `${i}              a!richTextItem(text: ${subVar}, color: "${theme.kpiSubColor}", size: "SMALL")`,
     `${i}            }`,
     `${i}          ),`,
     `${i}          width: "AUTO"`,
@@ -165,7 +164,7 @@ function renderKpiCard(kpi, index, indent) {
     `${i}      spacing: "STANDARD"`,
     `${i}    )`,
     `${i}  },`,
-    `${i}  style: "#FFFFFF",`,
+    `${i}  style: "${theme.cardBg}",`,
     `${i}  showBorder: true(),`,
     `${i}  padding: "MORE",`,
     `${i}  shape: "ROUNDED"`,
@@ -177,10 +176,10 @@ function renderKpiCard(kpi, index, indent) {
 /**
  * Render a KPIs section: a!cardGroupLayout wrapping 1–6 KPI cards.
  */
-function renderKpisSection(section, kpiOffset, indent) {
+function renderKpisSection(section, kpiOffset, indent, theme) {
   const i = indent;
   const cards = section.items
-    .map((kpi, idx) => renderKpiCard(kpi, kpiOffset + idx, i + "    "))
+    .map((kpi, idx) => renderKpiCard(kpi, kpiOffset + idx, i + "    ", theme))
     .join(",\n");
 
   return `${i}/* ── KPIs${section.label ? ": " + section.label : ""} ── */
@@ -198,13 +197,13 @@ ${i})`;
  * Render a chart section wrapped in a card.
  * Supports both static series and record-powered charts via recordSource.
  */
-function renderChartSection(section, indent, dataSource) {
+function renderChartSection(section, indent, dataSource, theme) {
   const i = indent;
   const component = CHART_COMPONENT[section.chartType];
 
   // Record-powered chart
   if (section.recordSource && dataSource) {
-    return renderRecordChartSection(section, dataSource, indent);
+    return renderRecordChartSection(section, dataSource, indent, theme);
   }
 
   // Static chart
@@ -213,7 +212,7 @@ function renderChartSection(section, indent, dataSource) {
     const data = section.series[0];
     const sliceSail = section.categories
       .map((cat, idx) => {
-        const color = data.color && section.categories.length === 1 ? data.color : PIE_SLICE_COLORS[idx % PIE_SLICE_COLORS.length];
+        const color = data.color && section.categories.length === 1 ? data.color : theme.piePalette[idx % theme.piePalette.length];
         return `${i}            a!chartSeries(label: ${toSailValue(cat)}, data: ${data.data[idx]}, color: "${color}")`;
       })
       .join(",\n");
@@ -232,7 +231,7 @@ ${i}        )`;
     const seriesSail = section.series
       .map(
         (s) =>
-          `${i}      a!chartSeries(label: ${toSailValue(s.label)}, data: {${s.data.join(", ")}}, color: "${s.color || "#2C3E50"}")`
+          `${i}      a!chartSeries(label: ${toSailValue(s.label)}, data: {${s.data.join(", ")}}, color: "${s.color || theme.chartAccent}")`
       )
       .join(",\n");
 
@@ -258,7 +257,7 @@ ${bodySail}
 ${i}      }
 ${i}    )
 ${i}  },
-${i}  style: "#FFFFFF",
+${i}  style: "${theme.cardBg}",
 ${i}  showBorder: true(),
 ${i}  shape: "ROUNDED",
 ${i}  padding: "STANDARD",
@@ -269,7 +268,7 @@ ${i})`;
 /**
  * Render a record-powered chart using a!pieChartConfig / pre-queried data.
  */
-function renderRecordChartSection(section, dataSource, indent) {
+function renderRecordChartSection(section, dataSource, indent, theme) {
   const i = indent;
   const component = CHART_COMPONENT[section.chartType];
   const rs = section.recordSource;
@@ -321,7 +320,7 @@ ${bodySail}
 ${i}      }
 ${i}    )
 ${i}  },
-${i}  style: "#FFFFFF",
+${i}  style: "${theme.cardBg}",
 ${i}  showBorder: true(),
 ${i}  shape: "ROUNDED",
 ${i}  padding: "STANDARD",
@@ -333,7 +332,7 @@ ${i})`;
  * Render a grid section wrapped in a card (no filter chrome).
  * Static mode — uses local variable for data.
  */
-function renderGridSection(grid, gridIndex, indent) {
+function renderGridSection(grid, gridIndex, indent, theme) {
   const i = indent;
   const primaryCol = pickPrimaryColumn(grid.columns);
   const columnsSail = renderColumnsFromDefinition(grid.columns, i + "      ");
@@ -364,7 +363,7 @@ ${i}        )
 ${i}      }
 ${i}    )
 ${i}  },
-${i}  style: "#FFFFFF",
+${i}  style: "${theme.cardBg}",
 ${i}  showBorder: true(),
 ${i}  shape: "ROUNDED",
 ${i}  padding: "STANDARD",
@@ -375,7 +374,7 @@ ${i})`;
 /**
  * Render a record-powered grid section — uses a!recordData with filters.
  */
-function renderRecordGridSection(grid, dataSource, indent) {
+function renderRecordGridSection(grid, dataSource, indent, theme) {
   const i = indent;
 
   // Build filters expression
@@ -476,7 +475,7 @@ ${i}        )
 ${i}      }
 ${i}    )
 ${i}  },
-${i}  style: "#FFFFFF",
+${i}  style: "${theme.cardBg}",
 ${i}  showBorder: true(),
 ${i}  shape: "ROUNDED",
 ${i}  padding: "STANDARD",
@@ -515,23 +514,23 @@ ${i})`;
 
 /**
  * Render any section by dispatching on its type.
- * Tracks state (kpiOffset, gridIndex, dataSource) for unique variable names.
+ * Tracks state (kpiOffset, gridIndex, dataSource, theme) for unique variable names.
  */
 function renderSection(section, state, indent) {
   switch (section.type) {
     case "kpis": {
-      const result = renderKpisSection(section, state.kpiOffset, indent);
+      const result = renderKpisSection(section, state.kpiOffset, indent, state.theme);
       state.kpiOffset += section.items.length;
       return result;
     }
     case "chart":
-      return renderChartSection(section, indent, state.dataSource);
+      return renderChartSection(section, indent, state.dataSource, state.theme);
     case "grid": {
       state.gridIndex++;
       if (section.recordSource && state.dataSource) {
-        return renderRecordGridSection(section, state.dataSource, indent);
+        return renderRecordGridSection(section, state.dataSource, indent, state.theme);
       }
-      return renderGridSection(section, state.gridIndex, indent);
+      return renderGridSection(section, state.gridIndex, indent, state.theme);
     }
     case "columns":
       return renderColumnsSection(section, state, indent);
@@ -670,6 +669,7 @@ ${i})`;
 
 function renderSkeleton(def) {
   const { title, headerSubtitle, sections } = def;
+  const theme = resolveTheme(def.theme);
 
   const renderedSections = sections
     .map((section) => renderSkeletonSection(section, "              "))
@@ -686,6 +686,9 @@ ${renderPageFrame({
     headerKind: def.headerKind,
     headerSubtitle,
     headerImage: def.headerImage,
+    backgroundColor: theme.pageBg,
+    headerBackgroundColor: theme.headerBg,
+    theme,
     body: renderedSections,
   })}
 )`;
@@ -697,11 +700,12 @@ ${renderPageFrame({
 
 function renderFromDefinition(def) {
   const { title, headerSubtitle, sections, dataSource } = def;
+  const theme = resolveTheme(def.theme);
 
   const kpiVarDecls = collectKpiDecls(sections, dataSource);
   const gridDataDecls = collectGridDecls(sections);
 
-  const state = { kpiOffset: 0, gridIndex: 0, dataSource: dataSource || null };
+  const state = { kpiOffset: 0, gridIndex: 0, dataSource: dataSource || null, theme };
   const renderedSections = sections
     .map((section) => renderSection(section, state, "              "))
     .join(",\n\n");
@@ -725,6 +729,9 @@ ${renderPageFrame({
     headerKind: def.headerKind,
     headerSubtitle,
     headerImage: def.headerImage,
+    backgroundColor: theme.pageBg,
+    headerBackgroundColor: theme.headerBg,
+    theme,
     body: renderedSections,
   })}
 )`;
@@ -756,7 +763,7 @@ module.exports = {
   renderSkeleton,
   // Exported for templates/component.js — a bare component is structurally
   // one dashboard section rendered without the outer header/gutter chrome.
-  KPI_DEFAULT_COLORS,
+  KPI_DEFAULT_COLORS: THEME_DEFAULTS.kpiColors,
   CHART_COMPONENT,
   renderKpiCard,
   renderKpisSection,

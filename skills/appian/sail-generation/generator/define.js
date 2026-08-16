@@ -26,6 +26,26 @@
  *     // NONE: no header bar at all (body starts at the top).
  *   "headerImage": "image URL — required only when headerKind is BILLBOARD",
  *
+ *   // OPTIONAL — color theme overrides (all values are hex #RRGGBB):
+ *   "theme": {
+ *     "headerBg":      "#2C3E50",  // Header card/hero/billboard background
+ *     "pageBg":        "#F5F6F8",  // Page body background
+ *     "cardBg":        "#FFFFFF",  // Section/KPI/chart card backgrounds
+ *     "titleColor":    "#FFFFFF",  // Title text on dark header
+ *     "subtitleColor": "#B0BEC5",  // Subtitle text on dark header
+ *     "kpiColors":     ["#2C3E50", "#34495E", "#7F8C8D", "#95A5A6"],  // Stamp bg rotation
+ *     "kpiLabelColor": "#6B7280",  // KPI metric label text
+ *     "kpiValueColor": "#262626",  // KPI metric value (large number)
+ *     "kpiSubColor":   "#7F8C8D",  // KPI sub-text
+ *     "chartAccent":   "#2C3E50",  // Default single-series chart color
+ *     "piePalette":    ["..."],    // Pie slice color rotation
+ *     "stampBg":       "#2C3E50",  // Default stamp backgroundColor
+ *     "stampContent":  "#FFFFFF"   // Stamp icon/text contentColor
+ *   },
+ *   // All keys are optional — omit the entire "theme" object for defaults.
+ *   // Use only when the user explicitly requests a non-standard color scheme
+ *   // (e.g. "dark mode", "branded colors", "high contrast").
+ *
  *   // WIZARD only — array of steps:
  *   "steps": [
  *     {
@@ -350,7 +370,10 @@
  *       no card chrome (lighter than record-view "sections").
  *     - "tagGroup": { "label"?, "items": [{ "text", "color"? }] } — a row of short chips.
  *       "color": ACCENT | POSITIVE | NEGATIVE | SECONDARY or hex.
- *     - "richTextBlock": { "text" } — a plain paragraph of text, no card.
+ *     - "richTextBlock": { "text", "size"?, "style"?, "align"?, "color"? } — a styled text
+ *       block, no card. "size": SMALL | STANDARD | MEDIUM | MEDIUM_PLUS | LARGE | EXTRA_LARGE.
+ *       "style": "STRONG" | "EMPHASIS". "align": LEFT | CENTER | RIGHT.
+ *       "color": hex color or keyword. Use for prices, marketing copy, descriptions.
  *     - "imageCard": { "image", "heading", "text"?, "link"?, "imageHeight"? } — a content
  *       card led by a photo, with a heading, optional body text, and an optional trailing
  *       link. The marketing / product-tile / room-card shape. "image" is a URL; the photo
@@ -385,6 +408,11 @@
  *         for messages that are always part of the UI (not a one-off toast-style banner).
  *         In persistent mode, "heading" becomes the H3 title and "text" the body — link/
  *         buttons/dismissible are ignored (the persistent pattern has no actions slot).
+ *     - "button": { "label", "style"?, "color"?, "align"?, "size"? } — a standalone CTA
+ *       button. "style": SOLID (default) | OUTLINE | LINK. "color": ACCENT (default) |
+ *       NEGATIVE | SECONDARY. "align": START (default) | CENTER | END.
+ *       "size": STANDARD (default) | SMALL. For multi-button groups, use "buttons" array
+ *       of { "label", "style"?, "color"? } instead of top-level "label".
  *
  * SKELETON MODE for layout-tree nodes: any container or leaf node may set "skeleton": true.
  *   Skeleton containers need only "items" (each with "skeleton": true); skeleton leaves need
@@ -1690,6 +1718,41 @@ function validateDefinition(def) {
 
   validateIcon(def.headerIcon, "headerIcon", errors);
   validateHeaderKind(def, errors);
+
+  // Optional theme overrides — all values must be valid hex colors
+  if (def.theme != null) {
+    if (typeof def.theme !== "object" || Array.isArray(def.theme)) {
+      errors.push('"theme" must be an object (or omitted)');
+    } else {
+      const HEX_RE = /^#[0-9A-Fa-f]{6}$/;
+      const VALID_THEME_KEYS = [
+        "headerBg", "pageBg", "cardBg",
+        "titleColor", "subtitleColor",
+        "kpiLabelColor", "kpiValueColor", "kpiSubColor",
+        "chartAccent", "stampBg", "stampContent",
+      ];
+      const VALID_THEME_ARRAY_KEYS = ["kpiColors", "piePalette"];
+      for (const [key, value] of Object.entries(def.theme)) {
+        if (VALID_THEME_ARRAY_KEYS.includes(key)) {
+          if (!Array.isArray(value) || value.length === 0) {
+            errors.push(`theme.${key}: must be a non-empty array of hex colors`);
+          } else {
+            value.forEach((v, idx) => {
+              if (!HEX_RE.test(v)) {
+                errors.push(`theme.${key}[${idx}]: must be a hex color (#RRGGBB), got: ${JSON.stringify(v)}`);
+              }
+            });
+          }
+        } else if (VALID_THEME_KEYS.includes(key)) {
+          if (!HEX_RE.test(value)) {
+            errors.push(`theme.${key}: must be a hex color (#RRGGBB), got: ${JSON.stringify(value)}`);
+          }
+        } else {
+          errors.push(`theme.${key}: unknown theme key. Valid keys: ${[...VALID_THEME_KEYS, ...VALID_THEME_ARRAY_KEYS].join(", ")}`);
+        }
+      }
+    }
+  }
 
   return errors;
 }

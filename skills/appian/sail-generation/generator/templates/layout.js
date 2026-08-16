@@ -21,6 +21,7 @@
 
 const layoutTree = require("../layout-tree");
 const { renderPageFrame, BODY_INDENT } = require("../page-frame");
+const { resolveTheme } = require("../theme");
 // Ensure grid/chart/kpis leaves are registered (dashboard.js registers them
 // as a side effect of being required).
 require("./dashboard");
@@ -33,12 +34,13 @@ function isFramed(def) {
 
 function renderFromDefinition(def) {
   const { title, root } = def;
+  const theme = resolveTheme(def.theme);
   const state = {};
   const varDecls = layoutTree.collectVarDecls(root, state);
   const framed = isFramed(def);
   // Framed bodies render at the page frame's center-column indent (14 spaces),
   // matching grid/dashboard/record-view; bare fragments stay at 2 spaces.
-  const body = layoutTree.renderNode(root, framed ? BODY_INDENT : "  ", {});
+  const body = layoutTree.renderNode(root, framed ? BODY_INDENT : "  ", { theme });
 
   const inner = framed
     ? renderPageFrame({
@@ -46,6 +48,9 @@ function renderFromDefinition(def) {
         headerKind: def.headerKind,
         headerSubtitle: def.headerSubtitle,
         headerImage: def.headerImage,
+        backgroundColor: theme.pageBg,
+        headerBackgroundColor: theme.headerBg,
+        theme,
         body,
       })
     : body;
@@ -68,6 +73,7 @@ ${varDecls ? varDecls + "\n\n" : ""}${inner}
 
 function renderSkeleton(def) {
   const { title, root } = def;
+  const theme = resolveTheme(def.theme);
   const framed = isFramed(def);
   const body = layoutTree.renderSkeletonNode(root, framed ? BODY_INDENT : "  ");
 
@@ -77,6 +83,9 @@ function renderSkeleton(def) {
         headerKind: def.headerKind,
         headerSubtitle: def.headerSubtitle,
         headerImage: def.headerImage,
+        backgroundColor: theme.pageBg,
+        headerBackgroundColor: theme.headerBg,
+        theme,
         body,
       })
     : body;

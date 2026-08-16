@@ -107,6 +107,25 @@
     - conditional-feel layout (accessibility details)
     - required boolean (agreement)
 
+- id: form-06-high-contrast-intake
+  type: form
+  prompt: >
+    Create a standalone interface called TEST_HighContrastIntake.
+    A high-contrast accessibility-friendly intake form. Use a very dark
+    header (#000000), pure white page background (#FFFFFF), light gray cards
+    (#F8F8F8), black title text on the header would not work so use bright
+    yellow (#FFDD00), and white subtitle (#FFFFFF). Two sections: "Contact
+    Details" with full name (text, required), email (required), phone in a
+    row; "Request" with category (dropdown: General Inquiry/Bug Report/
+    Feature Request/Billing/Other), priority (radio: Low/Normal/High/
+    Urgent), description (paragraph, required).
+  covers:
+    - high-contrast theme on form
+    - theme.headerBg #000000, titleColor #FFDD00
+    - accessibility-motivated color choices
+    - validates extreme color values pass hex validation
+    - simple 2-section form with required fields
+
 # -----------------------------------------------------------------------------
 # WIZARD tests — multi-step sequential processes
 # -----------------------------------------------------------------------------
@@ -170,6 +189,27 @@
     - multiple file uploads
     - checkboxes with many options
     - number and decimal in same step
+
+- id: wizard-04-branded-onboarding
+  type: wizard
+  prompt: >
+    Create a standalone interface called TEST_BrandedOnboarding.
+    A 3-step customer onboarding wizard with a warm brand palette — use a
+    deep indigo header (#312E81), soft lavender page background (#EDE9FE),
+    white cards, cream-toned title text (#F5F3FF), and muted purple subtitle
+    (#A78BFA). Step 1 "Account Setup": company name (text), industry
+    (dropdown: Technology/Healthcare/Finance/Retail/Manufacturing/Other),
+    company size (radio: 1-10/11-50/51-200/201-1000/1000+). Step 2
+    "Primary Contact": full name (text), email, phone in a row, job title
+    (text). Step 3 "Preferences": preferred timezone (dropdown with 5
+    timezones), communication preference (radio: Email/Slack/Teams),
+    onboarding goals (paragraph).
+  covers:
+    - custom brand theme on wizard
+    - theme.headerBg, pageBg, titleColor, subtitleColor overrides
+    - 3-step wizard
+    - dropdown, radio, paragraph
+    - validates non-default structural colors in form layout
 
 # -----------------------------------------------------------------------------
 # GRID tests — record list / table views
@@ -245,6 +285,26 @@
     - 5-value tag column
     - filter on tag
 
+- id: grid-05-midnight-security-log
+  type: grid
+  prompt: >
+    Create a standalone interface called TEST_SecurityLog.
+    A security event log grid with a dark "midnight ops" color scheme — use
+    charcoal header (#1F2937), slate page background (#111827), dark gray
+    cards (#1F2937), light gray title text (#F9FAFB), and muted blue-gray
+    subtitle (#9CA3AF). Columns: Timestamp (primary, MEDIUM), Event (text,
+    MEDIUM_PLUS), Source IP (text, NARROW_PLUS), Severity (tag, NARROW,
+    colors: Critical=#EF4444, High=#F59E0B, Medium=#3B82F6, Low=#6B7280),
+    Action (text, NARROW_PLUS). 5 sample rows of auth failures and firewall
+    blocks. Filter for Severity. PLAIN_CARD header with subtitle "Real-time
+    security event stream".
+  covers:
+    - custom dark theme on grid
+    - theme.headerBg, pageBg, cardBg, titleColor, subtitleColor overrides
+    - hex colors in tagColors (not just keywords)
+    - security/ops domain
+    - validates dark cards render correctly in grid template
+
 # -----------------------------------------------------------------------------
 # DASHBOARD tests — KPIs, charts, metrics overview
 # -----------------------------------------------------------------------------
@@ -313,19 +373,24 @@
   type: dashboard
   prompt: >
     Create a standalone interface called TEST_FinancialSummary.
-    A quarterly financial summary dashboard. KPIs: Revenue ($8.7M, +15% YoY,
-    dollar-sign icon), EBITDA ($2.1M, 24% margin, line-chart icon), Cash
-    Flow ($1.3M, positive trend, exchange icon), Burn Rate ($420K/mo,
-    18 months runway, fire icon). Column chart "Revenue vs Expenses" with
-    Q1-Q4 and two series: Revenue and Expenses. Then columns: a line chart
-    "Monthly Cash Position" (6 data points) and a bar chart "Department
-    Spend" (5 departments). Hero header with subtitle "Q2 2024 Financial
-    Performance".
+    A quarterly financial summary dashboard using our corporate brand
+    palette — navy header (#0C2340), very light blue-gray page background
+    (#F0F4F8), white cards, gold KPI stamp colors cycling through #C99700
+    #0C2340 #5B6770 #A4B0BD, and gold chart accent #C99700. KPIs: Revenue
+    ($8.7M, +15% YoY, dollar-sign icon), EBITDA ($2.1M, 24% margin,
+    line-chart icon), Cash Flow ($1.3M, positive trend, exchange icon),
+    Burn Rate ($420K/mo, 18 months runway, fire icon). Column chart
+    "Revenue vs Expenses" with Q1-Q4 and two series: Revenue and Expenses.
+    Then columns: a line chart "Monthly Cash Position" (6 data points) and
+    a bar chart "Department Spend" (5 departments). Hero header with
+    subtitle "Q2 2024 Financial Performance".
   covers:
     - multi-series column chart
     - HERO headerKind on dashboard
     - line + bar side by side
     - financial domain
+    - custom brand theme (corporate navy + gold)
+    - theme.headerBg, pageBg, kpiColors, chartAccent overrides
 
 # -----------------------------------------------------------------------------
 # RECORD-VIEW tests — read-only record detail pages
@@ -751,3 +816,31 @@
     - pane with nav + grid + detail (all main content types)
     - 3 panes with explicit widths
     - dark and light backgrounds
+
+# -----------------------------------------------------------------------------
+# THEME tests — custom color theming
+# -----------------------------------------------------------------------------
+
+- id: dashboard-05-dark-mode-monitoring
+  type: dashboard
+  prompt: >
+    Create a standalone interface called TEST_DarkModeDashboard.
+    A dark-mode system monitoring dashboard. Use a dark theme with header
+    background #1A1A2E, page background #16213E, card backgrounds #0F3460,
+    title text #E0E0E0, subtitle text #A0A0A0, KPI label color #B0B0B0,
+    KPI value color #FFFFFF, KPI sub-text color #808080, KPI stamp colors
+    cycling through #3B82F6 #10B981 #F59E0B #8B5CF6, and chart accent
+    color #3B82F6. KPIs: CPU Usage (72%, 4 cores active, microchip icon),
+    Memory (8.2 GB, of 16 GB total, server icon), Network I/O (1.2 Gbps,
+    peak today, signal icon), Disk Usage (67%, 340 GB free, database icon).
+    Then a line chart "System Load (15 min)" with 6 data points. Then
+    side-by-side: a pie chart "Traffic by Service" (API 45%, Web 30%,
+    Workers 25%) and a column chart "Errors by Hour" (6 hours).
+  covers:
+    - custom dark theme via definition JSON
+    - theme.headerBg, pageBg, cardBg overrides
+    - theme.titleColor, subtitleColor overrides
+    - theme.kpiLabelColor, kpiValueColor, kpiSubColor overrides
+    - theme.kpiColors array override
+    - theme.chartAccent and piePalette usage
+    - validates dark-on-dark color contrast in generated SAIL

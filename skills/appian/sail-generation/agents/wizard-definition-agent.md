@@ -98,6 +98,10 @@ Read the user's original request. Does it require ANY of these?
 
 ### Run `node generator/define.js --schema` for the full schema if you need a refresher.
 
+### Theme (optional)
+
+Add a `"theme"` object ONLY when the user explicitly requests non-default colors (e.g. "dark mode", "branded"). Omit it entirely for the standard look. All values must be hex `#RRGGBB`. Keys: `headerBg`, `pageBg`, `cardBg`, `titleColor`, `subtitleColor`, `stampContent`. Only include keys you want to override.
+
 ## Output
 Report: file path, whether Pass 3 is needed, and if so what domain content is required.
 Do NOT describe what was generated — no step lists, no field summaries. One line: the path.

@@ -15,14 +15,35 @@ UUID, output path, user request.
 
 Run `node generator/define.js --schema` for the **authoritative** vocabulary — this cheat-sheet is a convenience summary.
 
-### Page Framing (optional)
-| Field | Effect |
-|-------|--------|
-| `headerKind` | `PLAIN_CARD` (default), `HERO`, `BILLBOARD`, `NONE` |
-| `headerImage` | URL — required when `headerKind` is `BILLBOARD` |
-| `headerSubtitle` | Secondary line in the header |
+### Page Framing — decide FIRST, before writing `root`
 
-When `headerKind` is present, the layout-tree body is wrapped in the shared page frame. Omit it for a bare fragment.
+Every full-page layout should have a header unless the user explicitly says "no header" or
+the request is clearly a fragment/component to embed inside something else. Set these
+**top-level** fields — they are NOT part of the `root` tree:
+
+| Field | Purpose |
+|-------|---------|
+| `headerKind` | Picks the page-level header band style (see below) |
+| `headerSubtitle` | Short secondary line displayed in the header |
+| `headerImage` | Background photo URL — only used with BILLBOARD |
+
+**headerKind values:**
+
+| Value | What it renders | When to use |
+|-------|----------------|-------------|
+| `PLAIN_CARD` | Compact colored card with title + subtitle left-aligned. Default. | Most pages — dashboards, directories, lists, tools |
+| `HERO` | Tall centered title + subtitle over a full-width colored band. | Landing pages, marketing pages, welcome screens — when the title IS the visual statement |
+| `BILLBOARD` | Title overlaid on a background photograph (uses Appian's `a!billboardLayout`). Requires `headerImage`. | Showcase pages, portfolios, visually rich entries |
+| `NONE` | No header at all — body starts at the top. | Bare fragments, embeddable components, tab content |
+
+**Decision rules:**
+- If the request describes a full page with a title → set `headerKind` (default `PLAIN_CARD`)
+- If the user says "hero", "banner", "big title", "splash" → `HERO`
+- If the user provides or implies a background image → `BILLBOARD`
+- If the request is a widget/fragment/card to embed → omit `headerKind` (bare fragment)
+
+**Critical:** Headers live at the top level of the definition JSON. NEVER model a header,
+banner, or hero as a node inside `root`. The page-frame renders it — you just set the field.
 
 ### Containers (hold other nodes, no unique content)
 | Type | Min items | Notes |
@@ -42,19 +63,27 @@ When `headerKind` is present, the layout-tree body is wrapped in the shared page
 | `keyValueList` | `items` [{label, value}] | Light label/value pairs, no card. |
 | `tagGroup` | `items` [{text, color?}] | Row of chips. |
 | `repeatingCard` | `title`, `lines` [{label, text}] | Colored card with title + lines. |
-| `richTextBlock` | `text` | Plain paragraph. |
-| `imageCard` | `image`, `heading` | Photo-led content card. Optional `text`, `link`, `imageHeight`. |
+| `richTextBlock` | `text` | Styled text block. Optional: `size` (SMALL→EXTRA_LARGE), `style` ("STRONG"/"EMPHASIS"), `align` (LEFT/CENTER/RIGHT), `color` (hex or keyword). Use for prices, descriptions, marketing copy. |
+| `imageCard` | `image`, `heading` | Photo-led content card. Optional `text`, `link`, `imageHeight` (default SHORT_PLUS). |
 | `stamp` | ≥1 of `icon`/`text` | Single stamp element. `color` defaults to #2C3E50. `icon` defaults to "circle". Use with `width: "MINIMIZE"` inside sideBySide. |
 | `heading` | `text` | Standalone title row. Optional `size` (SMALL/MEDIUM/LARGE/EXTRA_LARGE, default MEDIUM). |
+| `button` | `label` | CTA button. Optional: `style` (SOLID/OUTLINE/LINK), `color` (ACCENT/NEGATIVE/SECONDARY), `align` (START/CENTER/END), `size` (STANDARD/SMALL). For multi-button: use `buttons` array of {label, style?, color?} instead of top-level `label`. |
 | `banner` | `severity`, `text` | Info/success/warn/error/closed message card. |
 
 ## Recursive Planning Workflow
 
-For each chunk of the user's request, ask: **is this a container (N things arranged in a shape) or a leaf (one piece of content)?**
+**Step A — Page framing (before touching `root`):**
+Does this request describe a full page with a title? If yes, set `headerKind` +
+`headerSubtitle` at the top level. Pick HERO/BILLBOARD only if the request warrants it;
+otherwise default to PLAIN_CARD.
+
+**Step B — Body decomposition (the `root` tree):**
+For each chunk of the user's body content, ask: is this a container (N things arranged in
+a shape) or a leaf (one piece of content)?
 
 1. Recurse until every branch terminates in a leaf or an isolated hand-written chunk.
-2. Produce one top-level `layout` definition whose `root` is one layout-tree node.
-3. Express any page-level header through framing fields (`headerKind`, `headerImage`, `headerSubtitle`).
+2. Produce one `root` node that is your outermost container or leaf.
+3. `root` contains ONLY body content — never headers, titles, or hero sections.
 
 ## Authoring Flow
 
@@ -70,6 +99,70 @@ For each chunk of the user's request, ask: **is this a container (N things arran
    mv output/{uuid}/{slug}-scaffold.sail output/{uuid}/{slug}.sail
    ```
 3. **Defer schema-inexpressible config** to Pass 3 (report what's needed).
+
+## Concrete Example — Team Directory Page
+
+Request: "A team directory page with a HERO header and 4 image cards"
+
+**Correct definition:**
+```json
+{
+  "type": "layout",
+  "title": "Our Team",
+  "headerKind": "HERO",
+  "headerSubtitle": "Meet the people behind the product",
+  "root": {
+    "type": "cardGroup",
+    "cardWidth": "MEDIUM",
+    "items": [
+      { "type": "imageCard", "image": "https://i.pravatar.cc/300?img=1", "heading": "Alice Chen", "text": "Engineer", "link": { "text": "View Profile" } },
+      { "type": "imageCard", "image": "https://i.pravatar.cc/300?img=2", "heading": "Bob Kumar", "text": "Designer", "link": { "text": "View Profile" } },
+      { "type": "imageCard", "image": "https://i.pravatar.cc/300?img=3", "heading": "Carol Smith", "text": "Manager", "link": { "text": "View Profile" } },
+      { "type": "imageCard", "image": "https://i.pravatar.cc/300?img=4", "heading": "Dan Lee", "text": "Data Scientist", "link": { "text": "View Profile" } }
+    ]
+  }
+}
+```
+
+**Key syntax rules:**
+- `headerKind` + `headerSubtitle` are top-level (NOT inside `root`)
+- Containers: `{ "type": "cardGroup", "items": [...] }` (type = a container name)
+- Leaves: `{ "type": "imageCard", "image": "...", ... }` (type = a leaf name)
+- The validator recognizes the node type from the value — container names become containers, leaf names become leaves
+- `"items"` is the children key (not `"children"`)
+
+**Another example — Pricing with buttons:**
+```json
+{
+  "type": "layout",
+  "title": "Pricing",
+  "headerKind": "PLAIN_CARD",
+  "headerSubtitle": "Start free, upgrade anytime",
+  "root": {
+    "type": "columns",
+    "items": [
+      {
+        "type": "card", "style": "STANDARD",
+        "items": [
+          { "type": "heading", "text": "Starter", "size": "LARGE" },
+          { "type": "richTextBlock", "text": "$0/mo", "size": "EXTRA_LARGE", "style": "STRONG", "align": "CENTER" },
+          { "type": "keyValueList", "label": "Includes", "items": [{"label": "Users", "value": "5"}, {"label": "Storage", "value": "10GB"}] },
+          { "type": "button", "label": "Get Started", "align": "CENTER" }
+        ]
+      },
+      {
+        "type": "card", "style": "ACCENT",
+        "items": [
+          { "type": "heading", "text": "Pro", "size": "LARGE" },
+          { "type": "richTextBlock", "text": "$49/mo", "size": "EXTRA_LARGE", "style": "STRONG", "align": "CENTER", "color": "#FFFFFF" },
+          { "type": "keyValueList", "label": "Includes", "items": [{"label": "Users", "value": "Unlimited"}, {"label": "Storage", "value": "100GB"}] },
+          { "type": "button", "label": "Start Free Trial", "align": "CENTER" }
+        ]
+      }
+    ]
+  }
+}
+```
 
 ## Hand-Written Fallback
 

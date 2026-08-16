@@ -25,6 +25,7 @@ const {
   renderChartSection,
   renderGridSection,
 } = require("./dashboard");
+const { resolveTheme } = require("../theme");
 
 // ---------------------------------------------------------------------------
 // Pane content renderers
@@ -75,11 +76,11 @@ ${i})`;
  * Grid pane content uses a fixed local!pane{N}GridData variable name rather
  * than dashboard's local!dashboardGridNData naming.
  */
-function renderGridContentForPane(content, paneIndex, indent) {
+function renderGridContentForPane(content, paneIndex, indent, theme) {
   // Default the card label to something pane-appropriate rather than
   // dashboard.js's "Recent Activity" default.
   if (!content.label) content.label = "List";
-  const rendered = renderGridSection(content, 1, indent);
+  const rendered = renderGridSection(content, 1, indent, theme);
   return rendered.replace(/local!dashboardGrid1Data/g, `local!pane${paneIndex}GridData`);
 }
 
@@ -87,16 +88,16 @@ function renderGridContentForPane(content, paneIndex, indent) {
  * Dispatch a single pane's content to the matching renderer.
  * state.kpiOffset tracks unique KPI variable numbering across all panes.
  */
-function renderPaneContent(content, paneIndex, state, indent) {
+function renderPaneContent(content, paneIndex, state, indent, theme) {
   switch (content.type) {
     case "nav":
       return renderNavContent(content, indent);
     case "grid":
-      return renderGridContentForPane(content, paneIndex, indent);
+      return renderGridContentForPane(content, paneIndex, indent, theme);
     case "chart":
-      return renderChartSection(content, indent);
+      return renderChartSection(content, indent, theme);
     case "kpis": {
-      const result = renderKpisSection(content, state.kpiOffset, indent);
+      const result = renderKpisSection(content, state.kpiOffset, indent, theme);
       state.kpiOffset += content.items.length;
       return result;
     }
@@ -144,10 +145,10 @@ function collectVarDecls(panes) {
 // Full pane rendering
 // ---------------------------------------------------------------------------
 
-function renderPane(pane, paneIndex, state, indent) {
+function renderPane(pane, paneIndex, state, indent, theme) {
   const i = indent;
   const bg = pane.backgroundColor ? `\n${i}  backgroundColor: "${pane.backgroundColor}",` : "";
-  const contentSail = renderPaneContent(pane.content, paneIndex + 1, state, i + "    ");
+  const contentSail = renderPaneContent(pane.content, paneIndex + 1, state, i + "    ", theme);
   return `${i}a!pane(
 ${i}  width: "${pane.width}",${bg}
 ${i}  contents: {
@@ -157,7 +158,7 @@ ${i}  padding: "STANDARD"
 ${i})`;
 }
 
-function renderHeaderBlock(title, headerSubtitle, indent) {
+function renderHeaderBlock(title, headerSubtitle, indent, theme) {
   const i = indent;
   return `${i}a!cardLayout(
 ${i}  contents: {
@@ -167,11 +168,11 @@ ${i}        a!sideBySideItem(
 ${i}          item: {
 ${i}            a!richTextDisplayField(
 ${i}              labelPosition: "COLLAPSED",
-${i}              value: a!richTextItem(text: "${title}", size: "LARGE", style: "STRONG", color: "#FFFFFF")
+${i}              value: a!richTextItem(text: "${title}", size: "LARGE", style: "STRONG", color: "${theme.titleColor}")
 ${i}            ),
 ${i}            a!richTextDisplayField(
 ${i}              labelPosition: "COLLAPSED",
-${i}              value: a!richTextItem(text: "${headerSubtitle || ""}", color: "#B0BEC5", size: "STANDARD")
+${i}              value: a!richTextItem(text: "${headerSubtitle || ""}", color: "${theme.subtitleColor}", size: "STANDARD")
 ${i}            )
 ${i}          },
 ${i}          width: "AUTO"
@@ -181,7 +182,7 @@ ${i}      alignVertical: "MIDDLE",
 ${i}      spacing: "STANDARD"
 ${i}    )
 ${i}  },
-${i}  style: "#2C3E50",
+${i}  style: "${theme.headerBg}",
 ${i}  showBorder: false(),
 ${i}  padding: "MORE",
 ${i}  marginBelow: "NONE"
@@ -190,16 +191,17 @@ ${i})`;
 
 function renderFromDefinition(def) {
   const { title, headerSubtitle, panes } = def;
+  const theme = resolveTheme(def.theme);
 
   const varDecls = collectVarDecls(panes);
   const state = { kpiOffset: 0 };
 
   let body;
   if (headerSubtitle) {
-    const panesSail = panes.map((pane, pi) => renderPane(pane, pi, state, "        ")).join(",\n\n");
+    const panesSail = panes.map((pane, pi) => renderPane(pane, pi, state, "        ", theme)).join(",\n\n");
     body = `a!headerContentLayout(
     header: {
-${renderHeaderBlock(title, headerSubtitle, "      ")}
+${renderHeaderBlock(title, headerSubtitle, "      ", theme)}
     },
     contents: a!paneLayout(
       panes: {
@@ -209,7 +211,7 @@ ${panesSail}
     contentsPadding: "NONE"
   )`;
   } else {
-    const panesSail = panes.map((pane, pi) => renderPane(pane, pi, state, "      ")).join(",\n\n");
+    const panesSail = panes.map((pane, pi) => renderPane(pane, pi, state, "      ", theme)).join(",\n\n");
     body = `a!paneLayout(
     panes: {
 ${panesSail}
@@ -273,13 +275,14 @@ ${i})`;
 
 function renderSkeleton(def) {
   const { title, headerSubtitle, panes } = def;
+  const theme = resolveTheme(def.theme);
 
   let body;
   if (headerSubtitle) {
     const panesSail = panes.map((pane) => renderSkeletonPane(pane, "        ")).join(",\n\n");
     body = `a!headerContentLayout(
     header: {
-${renderHeaderBlock(title, headerSubtitle, "      ")}
+${renderHeaderBlock(title, headerSubtitle, "      ", theme)}
     },
     contents: a!paneLayout(
       panes: {

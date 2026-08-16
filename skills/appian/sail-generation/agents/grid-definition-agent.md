@@ -45,7 +45,11 @@ Does the request require:
 
 ## Definition JSON — Grid Schema
 
-Optional top-level `headerKind` picks the page-header style (the scaffold emits the SAIL — never hand-write it): `"PLAIN_CARD"` (default — colored card with title + "New X" button), `"HERO"` (large centered title band), `"BILLBOARD"` (title over a background image — also set `"headerImage"` to an image URL), or `"NONE"` (no header bar). Omit it for the standard look.
+Optional top-level `headerKind` picks the page-header style (the scaffold emits the SAIL — never hand-write it): `"PLAIN_CARD"` (default — compact colored card with title + subtitle + action button), `"HERO"` (tall centered title + subtitle on a full-width colored band — for landing/splash pages where the title IS the visual statement), `"BILLBOARD"` (title overlaid on a background photo via Appian's `a!billboardLayout` — also set `"headerImage"` to a URL), or `"NONE"` (no header bar). Omit for the standard PLAIN_CARD look.
+
+### Theme (optional)
+
+Add a `"theme"` object ONLY when the user explicitly requests non-default colors (e.g. "dark mode", "branded"). Omit entirely for standard look. All values hex `#RRGGBB`. Keys: `headerBg`, `pageBg`, `cardBg`, `titleColor`, `subtitleColor`. Only include keys you want to override.
 
 ```json
 {

@@ -20,6 +20,7 @@ const {
   collectKpiDecls,
 } = require("./dashboard");
 const { renderRowsFromDefinition } = require("./grid");
+const { resolveTheme } = require("../theme");
 
 /**
  * Render the local!-variable declarations a section needs (KPI values,
@@ -47,18 +48,18 @@ function renderVarDecls(section) {
  * Render the component body itself — dispatches to the matching dashboard
  * section renderer at top-level indent (no outer wrapper).
  */
-function renderComponentBody(section) {
+function renderComponentBody(section, theme) {
   const indent = "  ";
   switch (section.type) {
     case "kpis":
       // kpiOffset is always 0 — a bare component only ever declares its own KPIs
-      return renderKpisSection(section, 0, indent);
+      return renderKpisSection(section, 0, indent, theme);
     case "chart":
-      return renderChartSection(section, indent);
+      return renderChartSection(section, indent, null, theme);
     case "grid":
       // gridIndex is unused in the rendered SAIL itself (only affects the
       // local! variable name), so 1 is fine for a single standalone grid.
-      return renderGridSectionForComponent(section, indent);
+      return renderGridSectionForComponent(section, indent, theme);
     default:
       throw new Error(`Unsupported component type: ${section.type}`);
   }
@@ -69,13 +70,14 @@ function renderComponentBody(section) {
  * renderVarDecls above) rather than the dashboard's local!dashboardGridNData
  * naming, since there's only ever one grid in a component definition.
  */
-function renderGridSectionForComponent(section, indent) {
-  const rendered = renderGridSection(section, 1, indent);
+function renderGridSectionForComponent(section, indent, theme) {
+  const rendered = renderGridSection(section, 1, indent, theme);
   return rendered.replace(/local!dashboardGrid1Data/g, "local!componentGridData");
 }
 
 function renderFromDefinition(def) {
   const { title, section } = def;
+  const theme = resolveTheme(def.theme);
   // Grid/chart sections default their card label to "Recent Activity"/"Trend"
   // when unset — for a standalone component, the definition's own title is a
   // better default label than a dashboard-ism.
@@ -83,7 +85,7 @@ function renderFromDefinition(def) {
   if (section.type === "chart" && !section.label) section.label = section.title || title;
 
   const varDecls = renderVarDecls(section);
-  const body = renderComponentBody(section);
+  const body = renderComponentBody(section, theme);
 
   return `/*
  * ${title}

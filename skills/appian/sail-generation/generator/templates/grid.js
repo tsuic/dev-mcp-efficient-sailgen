@@ -10,6 +10,7 @@
  */
 
 const { renderPageFrame } = require("../page-frame");
+const { resolveTheme } = require("../theme");
 
 // =============================================================================
 // DEFINITION-DRIVEN RENDERING (Pass 2 of the two-pass pipeline)
@@ -182,6 +183,7 @@ function resolveFilterChoices(filter, columns) {
 
 function renderFromDefinition(def) {
   const { title, entityName, columns, rows } = def;
+  const theme = resolveTheme(def.theme);
   const primaryCol = pickPrimaryColumn(columns);
   const filters = (def.filters || []).map((f) => ({ ...f, choices: resolveFilterChoices(f, columns) }));
 
@@ -313,7 +315,7 @@ ${columnsSail}
                     emptyGridMessage: "No ${entityName.toLowerCase()} records found."
                   )
                 },
-                style: "#FFFFFF",
+                style: "${theme.cardBg}",
                 showBorder: true(),
                 shape: "ROUNDED",
                 padding: "STANDARD"
@@ -339,6 +341,9 @@ ${renderPageFrame({
     headerSubtitle: def.headerSubtitle,
     headerImage: def.headerImage,
     headerRight: newButton,
+    backgroundColor: theme.pageBg,
+    headerBackgroundColor: theme.headerBg,
+    theme,
     body,
   })}
 )`;
@@ -354,6 +359,7 @@ ${renderPageFrame({
 
 function renderSkeleton(def) {
   const { title, entityName } = def;
+  const theme = resolveTheme(def.theme);
 
   const newButton = `a!buttonArrayLayout(
                   buttons: {
@@ -376,7 +382,7 @@ function renderSkeleton(def) {
                     contents: {}
                   )
                 },
-                style: "#FFFFFF",
+                style: "${theme.cardBg}",
                 showBorder: true(),
                 shape: "ROUNDED",
                 padding: "STANDARD"
@@ -394,6 +400,9 @@ ${renderPageFrame({
     headerSubtitle: def.headerSubtitle,
     headerImage: def.headerImage,
     headerRight: newButton,
+    backgroundColor: theme.pageBg,
+    headerBackgroundColor: theme.headerBg,
+    theme,
     body,
   })}
 )`;

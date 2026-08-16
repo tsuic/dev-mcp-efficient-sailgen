@@ -13,6 +13,7 @@ const { toLocalVar, toCamelCase } = require("../shared");
 const { toSailValue, renderTagColorExpr } = require("./grid");
 const { renderPageFrame } = require("../page-frame");
 const layoutTree = require("../layout-tree");
+const { resolveTheme } = require("../theme");
 // Ensure grid/chart/kpis leaves are registered for the "layout" escape hatch.
 require("./dashboard");
 
@@ -751,6 +752,7 @@ ${i})`;
 
 function renderFromDefinition(def) {
   const { title, entityName, recordName, keyAttributes = [], sections, layout, layoutLabel, dataBinding } = def;
+  const theme = resolveTheme(def.theme);
   const sectionList = sections || [];
 
   // Collect all fields for local variable declarations. fieldRef-based
@@ -769,7 +771,7 @@ function renderFromDefinition(def) {
   // Layout-tree escape hatch (criteria lists, RAG-tier card groups, or any
   // other content that doesn't fit the fixed keyAttributes/sections shape)
   // contributes its own var decls (KPI values, grid sample data, etc.).
-  const layoutVarDecls = layout ? layoutTree.collectVarDecls(layout, { dataBinding }) : "";
+  const layoutVarDecls = layout ? layoutTree.collectVarDecls(layout, { dataBinding, theme }) : "";
 
   // Query_Prologue (Requirements 3.7, 4.8): rendered only when dataBinding is
   // present, and prepended so its local! declarations are declared before any
@@ -797,7 +799,7 @@ function renderFromDefinition(def) {
   // (e.g. itemList, cardGroup via a parent node) still work fine unwrapped;
   // "layoutLabel" is for giving the whole escape-hatch fragment a heading
   // when the request calls for one (e.g. "Activity / Comments").
-  const layoutBody = layout ? layoutTree.renderNode(layout, layoutLabel ? "                " : "              ", { dataBinding }) : "";
+  const layoutBody = layout ? layoutTree.renderNode(layout, layoutLabel ? "                " : "              ", { dataBinding, theme }) : "";
   const layoutSail = layout && layoutLabel
     ? `              a!sectionLayout(\n                label: "${layoutLabel}",\n                labelColor: "STANDARD",\n                contents: {\n${layoutBody}\n                }\n              )`
     : layoutBody;
@@ -844,6 +846,9 @@ ${renderPageFrame({
     headerKind: def.headerKind,
     headerImage: def.headerImage,
     headerRight: editButton,
+    backgroundColor: theme.pageBg,
+    headerBackgroundColor: theme.headerBg,
+    theme,
     body,
   })}
 )`;
@@ -857,6 +862,7 @@ ${renderPageFrame({
 
 function renderSkeleton(def) {
   const { title, recordName } = def;
+  const theme = resolveTheme(def.theme);
 
   const editButton = `a!buttonArrayLayout(
                   buttons: {
@@ -879,7 +885,7 @@ function renderSkeleton(def) {
                     contents: {}
                   )
                 },
-                style: "#FFFFFF",
+                style: "${theme.cardBg}",
                 showBorder: true(),
                 shape: "ROUNDED",
                 padding: "STANDARD"
@@ -896,6 +902,9 @@ ${renderPageFrame({
     headerKind: def.headerKind,
     headerImage: def.headerImage,
     headerRight: editButton,
+    backgroundColor: theme.pageBg,
+    headerBackgroundColor: theme.headerBg,
+    theme,
     body,
   })}
 )`;

@@ -108,7 +108,7 @@ At least one of `"sections"` or `"layout"` is required. Renders after the field-
 
 ## Definition JSON — Record View Schema
 
-Optional top-level `headerKind` picks the page-header style (the scaffold emits the SAIL — never hand-write it): `"PLAIN_CARD"` (default — colored card with record name + "Edit" button), `"HERO"` (large centered record name band), `"BILLBOARD"` (record name over a background image — also set `"headerImage"` to an image URL), or `"NONE"` (no header bar). Omit it for the standard look.
+Optional top-level `headerKind` picks the page-header style (the scaffold emits the SAIL — never hand-write it): `"PLAIN_CARD"` (default — compact colored card with record name + "Edit" button), `"HERO"` (tall centered record name + subtitle on a full-width colored band — for showcase-style record profiles), `"BILLBOARD"` (record name overlaid on a background photo via Appian's `a!billboardLayout` — also set `"headerImage"` to a URL), or `"NONE"` (no header bar). Omit for the standard PLAIN_CARD look.
 
 ```json
 {

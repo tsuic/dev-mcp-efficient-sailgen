@@ -24,6 +24,8 @@
  *   - backgroundColor / headerBackgroundColor / centerWidth / contentsPadding
  */
 
+const { THEME_DEFAULTS } = require("./theme");
+
 const HEADER_KINDS = ["PLAIN_CARD", "HERO", "BILLBOARD", "NONE"];
 
 // Center-column body indent. All three legacy templates emitted body content
@@ -41,7 +43,7 @@ function esc(s) {
 // "{ ... }"), or null for NONE.
 // ---------------------------------------------------------------------------
 
-function titleRichText(title, indent) {
+function titleRichText(title, indent, theme) {
   const i = indent;
   return `${i}a!richTextDisplayField(
 ${i}  labelPosition: "COLLAPSED",
@@ -49,31 +51,31 @@ ${i}  value: a!richTextItem(
 ${i}    text: "${esc(title)}",
 ${i}    size: "LARGE",
 ${i}    style: "STRONG",
-${i}    color: "#FFFFFF"
+${i}    color: "${theme.titleColor}"
 ${i}  )
 ${i})`;
 }
 
-function subtitleRichText(subtitle, indent) {
+function subtitleRichText(subtitle, indent, theme) {
   const i = indent;
   return `${i}a!richTextDisplayField(
 ${i}  labelPosition: "COLLAPSED",
 ${i}  value: a!richTextItem(
 ${i}    text: "${esc(subtitle)}",
-${i}    color: "#B0BEC5",
+${i}    color: "${theme.subtitleColor}",
 ${i}    size: "STANDARD"
 ${i}  )
 ${i})`;
 }
 
-function renderPlainCardHeader({ title, headerSubtitle, headerRight, headerBackgroundColor }) {
+function renderPlainCardHeader({ title, headerSubtitle, headerRight, headerBackgroundColor, theme }) {
   // Left item: title alone, or title + subtitle stacked in an array.
   const leftItem = headerSubtitle
     ? `                item: {
-${titleRichText(title, "                  ")},
-${subtitleRichText(headerSubtitle, "                  ")}
+${titleRichText(title, "                  ", theme)},
+${subtitleRichText(headerSubtitle, "                  ", theme)}
                 }`
-    : `                item: ${titleRichText(title, "                ").trimStart()}`;
+    : `                item: ${titleRichText(title, "                ", theme).trimStart()}`;
 
   const rightItemBlock = headerRight
     ? `,
@@ -105,7 +107,7 @@ ${leftItem},
     }`;
 }
 
-function renderHeroHeader({ title, headerSubtitle, headerBackgroundColor }) {
+function renderHeroHeader({ title, headerSubtitle, headerBackgroundColor, theme }) {
   const subtitleLine = headerSubtitle
     ? `,
           a!richTextDisplayField(
@@ -113,7 +115,7 @@ function renderHeroHeader({ title, headerSubtitle, headerBackgroundColor }) {
             align: "CENTER",
             value: a!richTextItem(
               text: "${esc(headerSubtitle)}",
-              color: "#B0BEC5",
+              color: "${theme.subtitleColor}",
               size: "MEDIUM"
             )
           )`
@@ -129,7 +131,7 @@ function renderHeroHeader({ title, headerSubtitle, headerBackgroundColor }) {
               text: "${esc(title)}",
               size: "EXTRA_LARGE",
               style: "STRONG",
-              color: "#FFFFFF"
+              color: "${theme.titleColor}"
             )
           )${subtitleLine}
         },
@@ -141,14 +143,14 @@ function renderHeroHeader({ title, headerSubtitle, headerBackgroundColor }) {
     }`;
 }
 
-function renderBillboardHeader({ title, headerSubtitle, headerBackgroundColor, headerImage }) {
+function renderBillboardHeader({ title, headerSubtitle, headerBackgroundColor, headerImage, theme }) {
   const subtitleLine = headerSubtitle
     ? `,
             a!richTextDisplayField(
               labelPosition: "COLLAPSED",
               value: a!richTextItem(
                 text: "${esc(headerSubtitle)}",
-                color: "#FFFFFF",
+                color: "${theme.titleColor}",
                 size: "MEDIUM"
               )
             )`
@@ -171,7 +173,7 @@ function renderBillboardHeader({ title, headerSubtitle, headerBackgroundColor, h
                 text: "${esc(title)}",
                 size: "LARGE",
                 style: "STRONG",
-                color: "#FFFFFF"
+                color: "${theme.titleColor}"
               )
             )${subtitleLine}
           }
@@ -202,14 +204,15 @@ function renderPageFrame(opts) {
     headerSubtitle,
     headerRight = null,
     headerImage,
-    backgroundColor = "#F5F6F8",
-    headerBackgroundColor = "#2C3E50",
+    backgroundColor = THEME_DEFAULTS.pageBg,
+    headerBackgroundColor = THEME_DEFAULTS.headerBg,
     centerWidth = "EXTRA_WIDE",
     contentsPadding = "MORE",
+    theme = THEME_DEFAULTS,
   } = opts;
 
   const headerSail = renderHeader(headerKind, {
-    title, headerSubtitle, headerRight, headerBackgroundColor, headerImage,
+    title, headerSubtitle, headerRight, headerBackgroundColor, headerImage, theme,
   });
 
   const headerParam = headerSail ? `    header: ${headerSail},\n` : "";

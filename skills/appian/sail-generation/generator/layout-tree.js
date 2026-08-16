@@ -32,7 +32,7 @@
  *
  * A node is either:
  *   { "layout": "columns" | "cardGroup" | "sideBySide" | "tabs" | "card", "items": [...], "label"?: string }
- *   { "leaf": "grid" | "chart" | "kpis" | "keyValueList" | "tagGroup" | "richTextBlock" | "banner" | "imageCard" | "stamp" | "heading" | "itemList", ...leafProps }
+ *   { "leaf": "grid" | "chart" | "kpis" | "keyValueList" | "tagGroup" | "richTextBlock" | "banner" | "imageCard" | "stamp" | "heading" | "itemList" | "button", ...leafProps }
  *
  * The planner's job for an LLM caller is exactly: "is this chunk of the
  * request a container (how many children, what layout) or a leaf (which
@@ -79,7 +79,7 @@ function registerCoreLeaves(dashboardModule) {
     },
     render(node, indent, state) {
       const offset = state.kpiOffset || 0;
-      const result = renderKpisSection(node, offset, indent);
+      const result = renderKpisSection(node, offset, indent, state.theme);
       state.kpiOffset = offset + node.items.length;
       return result;
     },
@@ -96,8 +96,8 @@ function registerCoreLeaves(dashboardModule) {
       const { validateChartFields } = require("./define");
       validateChartFields(node, context, errors);
     },
-    render(node, indent) {
-      return renderChartSection(node, indent);
+    render(node, indent, state) {
+      return renderChartSection(node, indent, state.dataSource, state.theme);
     },
     renderSkeleton(node, indent) {
       return renderSkeletonSection({ ...node, type: "chart" }, indent);
@@ -117,7 +117,7 @@ function registerCoreLeaves(dashboardModule) {
     },
     render(node, indent, state) {
       state.gridIndex = (state.gridIndex || 0) + 1;
-      return renderGridSection(node, state.gridIndex, indent);
+      return renderGridSection(node, state.gridIndex, indent, state.theme);
     },
     renderSkeleton(node, indent) {
       return renderSkeletonSection({ ...node, type: "grid" }, indent);
@@ -127,7 +127,7 @@ function registerCoreLeaves(dashboardModule) {
       state.gridIndex = (state.gridIndex || 0) + 1;
       const idx = state.gridIndex;
       const rows = renderRowsFromDefinition(node.columns, node.rows, "    ");
-      return `  /* TODO-CONVERTER: Replace with record type data source */\n  local!layoutGrid${idx}Data: {\n${rows}\n  },`;
+      return `  /* TODO-CONVERTER: Replace with record type data source */\n  local!dashboardGrid${idx}Data: {\n${rows}\n  },`;
     },
   });
 }
@@ -428,13 +428,37 @@ ${i})`;
 // ---------------------------------------------------------------------------
 // New leaf: richTextBlock — a plain paragraph of formatted text, no card.
 // ---------------------------------------------------------------------------
+// Leaf: richTextBlock — a paragraph or styled text block, no card chrome.
+//
+// Optional props:
+//   size:   "SMALL" | "STANDARD" | "MEDIUM" | "MEDIUM_PLUS" | "LARGE" | "EXTRA_LARGE"
+//   style:  "STRONG" | "EMPHASIS" | null (default: none)
+//   align:  "LEFT" | "CENTER" | "RIGHT" (default: LEFT)
+//   color:  hex color or "ACCENT" / "SECONDARY" / "POSITIVE" / "NEGATIVE"
+// ---------------------------------------------------------------------------
+const RICH_TEXT_SIZES = ["SMALL", "STANDARD", "MEDIUM", "MEDIUM_PLUS", "LARGE", "EXTRA_LARGE"];
+const RICH_TEXT_ALIGNS = ["LEFT", "CENTER", "RIGHT"];
+
 registerLeaf("richTextBlock", {
   validate(node, context, errors) {
     if (!node.text) errors.push(`${context}: "text" is required`);
+    if (node.size && !RICH_TEXT_SIZES.includes(node.size)) {
+      errors.push(`${context}: "size" must be one of [${RICH_TEXT_SIZES.join(", ")}], got: ${JSON.stringify(node.size)}`);
+    }
+    if (node.align && !RICH_TEXT_ALIGNS.includes(node.align)) {
+      errors.push(`${context}: "align" must be one of [${RICH_TEXT_ALIGNS.join(", ")}], got: ${JSON.stringify(node.align)}`);
+    }
+    if (node.style && !["STRONG", "EMPHASIS"].includes(node.style)) {
+      errors.push(`${context}: "style" must be "STRONG" or "EMPHASIS", got: ${JSON.stringify(node.style)}`);
+    }
   },
   render(node, indent) {
     const i = indent;
-    return `${i}a!richTextDisplayField(\n${i}  labelPosition: "COLLAPSED",\n${i}  value: a!richTextItem(text: ${toSailValue(node.text)}, color: "#262626")\n${i})`;
+    const sizePart = node.size ? `, size: "${node.size}"` : "";
+    const stylePart = node.style ? `, style: "${node.style}"` : "";
+    const colorPart = node.color ? `, color: "${node.color}"` : `, color: "#262626"`;
+    const alignLine = node.align ? `\n${i}  align: "${node.align}",` : "";
+    return `${i}a!richTextDisplayField(\n${i}  labelPosition: "COLLAPSED",${alignLine}\n${i}  value: a!richTextItem(text: ${toSailValue(node.text)}${stylePart}${sizePart}${colorPart})\n${i})`;
   },
   renderSkeleton(node, indent) {
     const i = indent;
@@ -446,11 +470,83 @@ registerLeaf("richTextBlock", {
 });
 
 // ---------------------------------------------------------------------------
+// Leaf: button — a standalone CTA button (or button group). Renders
+// a!buttonArrayLayout with one or more a!buttonWidget items.
+//
+// Minimal: { "leaf": "button", "label": "Get Started" }
+// Full:    { "leaf": "button", "label": "Get Started", "style": "SOLID",
+//            "color": "ACCENT", "align": "CENTER", "size": "STANDARD" }
+// Group:   { "leaf": "button", "buttons": [
+//            { "label": "Primary", "style": "SOLID", "color": "ACCENT" },
+//            { "label": "Secondary", "style": "OUTLINE" }
+//          ]}
+//
+// Props:
+//   label:  button text (required if no "buttons" array)
+//   style:  "SOLID" | "OUTLINE" | "LINK" (default: "SOLID")
+//   color:  "ACCENT" | "POSITIVE" | "NEGATIVE" | "SECONDARY" (default: "ACCENT")
+//   size:   "STANDARD" | "SMALL" (default: "STANDARD")
+//   align:  "START" | "CENTER" | "END" (default: "START")
+//   buttons: array of { label, style?, color?, size? } for multi-button groups
+// ---------------------------------------------------------------------------
+const BUTTON_STYLES = ["SOLID", "OUTLINE", "LINK"];
+const BUTTON_COLORS = ["ACCENT", "NEGATIVE", "SECONDARY"];
+const BUTTON_SIZES = ["STANDARD", "SMALL"];
+const BUTTON_ALIGNS = ["START", "CENTER", "END"];
+
+registerLeaf("button", {
+  validate(node, context, errors) {
+    const buttons = node.buttons || [{ label: node.label, style: node.style, color: node.color, size: node.size }];
+    if (!node.label && !node.buttons) {
+      errors.push(`${context}: "label" is required (or provide a "buttons" array)`);
+    }
+    if (node.align && !BUTTON_ALIGNS.includes(node.align)) {
+      errors.push(`${context}: "align" must be one of [${BUTTON_ALIGNS.join(", ")}], got: ${JSON.stringify(node.align)}`);
+    }
+    buttons.forEach((btn, bi) => {
+      const bc = node.buttons ? `${context}.buttons[${bi}]` : context;
+      if (!btn.label) errors.push(`${bc}: "label" is required`);
+      if (btn.style && !BUTTON_STYLES.includes(btn.style)) {
+        errors.push(`${bc}: "style" must be one of [${BUTTON_STYLES.join(", ")}], got: ${JSON.stringify(btn.style)}`);
+      }
+      if (btn.color && !BUTTON_COLORS.includes(btn.color)) {
+        errors.push(`${bc}: "color" must be one of [${BUTTON_COLORS.join(", ")}], got: ${JSON.stringify(btn.color)}`);
+      }
+      if (btn.size && !BUTTON_SIZES.includes(btn.size)) {
+        errors.push(`${bc}: "size" must be one of [${BUTTON_SIZES.join(", ")}], got: ${JSON.stringify(btn.size)}`);
+      }
+    });
+  },
+  render(node, indent) {
+    const i = indent;
+    const buttons = node.buttons || [{ label: node.label, style: node.style, color: node.color, size: node.size }];
+    const align = node.align || "START";
+
+    const btnsSail = buttons.map((btn) => {
+      const style = btn.style || "SOLID";
+      const color = btn.color || "ACCENT";
+      const size = btn.size || "STANDARD";
+      return `${i}    a!buttonWidget(\n${i}      label: ${toSailValue(btn.label)},\n${i}      style: "${style}",\n${i}      color: "${color}",\n${i}      size: "${size}",\n${i}      saveInto: {}\n${i}    )`;
+    }).join(",\n");
+
+    return `${i}a!buttonArrayLayout(\n${i}  buttons: {\n${btnsSail}\n${i}  },\n${i}  align: "${align}",\n${i}  marginBelow: "STANDARD"\n${i})`;
+  },
+  renderSkeleton(node, indent) {
+    const i = indent;
+    const label = node.label || (node.buttons && node.buttons[0] && node.buttons[0].label) || "Action";
+    return `${i}a!buttonArrayLayout(\n${i}  buttons: {\n${i}    a!buttonWidget(label: ${toSailValue(label)}, style: "SOLID", color: "ACCENT", saveInto: {})\n${i}  },\n${i}  align: "START",\n${i}  marginBelow: "STANDARD"\n${i})`;
+  },
+  collectVarDecls() {
+    return "";
+  },
+});
+
+// ---------------------------------------------------------------------------
 // New leaf: stamp — a single stamp element (icon + optional text + optional
 // color). Modeled on the stamp emitted inside renderKpiCard. The finest
 // granularity needed for an "icon-then-title" row inside a sideBySide.
 // ---------------------------------------------------------------------------
-const STAMP_DEFAULT_COLOR = "#2C3E50"; // page-primary; matches KPI_DEFAULT_COLORS[0]
+const STAMP_DEFAULT_COLOR = require("./theme").THEME_DEFAULTS.stampBg; // page-primary; matches kpiColors[0]
 
 registerLeaf("stamp", {
   validate(node, context, errors) {
@@ -1042,11 +1138,43 @@ function hasForbiddenSideBySideDescendant(node) {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// "type" alias normalization
+// ---------------------------------------------------------------------------
+// LLMs strongly prefer `"type": "cardGroup"` over `"layout": "cardGroup"` because
+// "type" is the universal discriminator key in JSON schemas, OpenAPI, React trees,
+// etc. Rather than fighting that prior, we accept "type" and normalize it to the
+// canonical "layout"/"leaf" key before validation/rendering.
+//
+// Mutates `node` in place. Safe to call multiple times (idempotent).
+// ---------------------------------------------------------------------------
+function normalizeNodeType(node) {
+  if (!node || typeof node !== "object") return;
+  if (node.layout || node.leaf) return; // already canonical
+  if (node.type === undefined) return;  // nothing to normalize
+
+  const val = node.type;
+  if (CONTAINER_TYPES.includes(val)) {
+    node.layout = val;
+    delete node.type;
+  } else if (LEAF_TYPES[val]) {
+    node.leaf = val;
+    delete node.type;
+  }
+  // If val doesn't match either vocabulary, leave it for validation to report.
+  // Also normalize children recursively.
+  if (Array.isArray(node.items)) {
+    node.items.forEach(normalizeNodeType);
+  }
+}
+
 function validateNode(node, context, errors) {
   if (!node || typeof node !== "object") {
     errors.push(`${context}: node must be an object`);
     return;
   }
+
+  normalizeNodeType(node);
 
   const isContainer = !!node.layout;
   const isLeaf = !!node.leaf;
@@ -1149,6 +1277,7 @@ function validateNode(node, context, errors) {
 // ---------------------------------------------------------------------------
 
 function renderNode(node, indent, state) {
+  normalizeNodeType(node);
   if (node.layout) {
     return renderContainer(node, indent, state);
   }
@@ -1231,6 +1360,7 @@ function renderContainer(node, indent, state) {
 }
 
 function renderSkeletonNode(node, indent) {
+  normalizeNodeType(node);
   const i = indent;
   if (node.layout) {
     const childIndent = i + "    ";
@@ -1287,6 +1417,7 @@ function renderSkeletonNode(node, indent) {
 
 function collectVarDecls(node, state) {
   state = state || {};
+  normalizeNodeType(node);
   if (node.layout) {
     return node.items.map((item) => collectVarDecls(item, state)).filter(Boolean).join("\n\n");
   }
