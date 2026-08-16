@@ -192,3 +192,4 @@ If in doubt, render less.
 
 ## Output
 Report file path and validation status (`✅ PASS` or the fix cycle if it failed).
+Do NOT describe what was generated — no column lists, no data summaries. One line: the path.

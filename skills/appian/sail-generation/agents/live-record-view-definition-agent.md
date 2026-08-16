@@ -204,3 +204,4 @@ Order is preserved — each pair's `field` must be a non-empty string and `value
 
 ## Output
 Report: file path, whether Pass 3 is needed, any `todos` entries left for the reviewer.
+Do NOT describe what was generated — no field lists, no section summaries. One line: the path.

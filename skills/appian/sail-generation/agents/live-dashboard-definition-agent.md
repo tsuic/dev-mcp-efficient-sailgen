@@ -337,6 +337,7 @@ Prefer hex colors (e.g. `"#C0392B"`) — always validates. The only non-hex valu
 
 ## Output
 Report: file path (absolute, resolved — NOT `$TMPDIR`), whether Pass 3 is needed, any computed metrics that require hand-written SAIL (e.g. avg resolution time with forEach).
+Do NOT describe what was generated — no KPI lists, no chart summaries. One line: the path.
 
 When reporting the file path, always use the actual resolved path from scaffold.js stdout
 (e.g. `/var/folders/.../sail-generation/{uuid}/{slug}.sail`), never the unexpanded `$TMPDIR` variable.

@@ -28,7 +28,6 @@ const UNIVERSAL_PARAMS = new Set([
   "showWhen",
   "marginAbove",
   "marginBelow",
-  "accessibilityText",
   "helpTooltip",
 ]);
 

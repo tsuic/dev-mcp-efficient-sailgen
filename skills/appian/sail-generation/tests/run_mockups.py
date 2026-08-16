@@ -124,21 +124,64 @@ def build_command(prompt, args):
 
 
 def heuristic_grade(tool_calls, tool_errors, final_result, returncode):
-    """Best-effort signal only. The authoritative grade is the PASS/PARTIAL/FAIL-*
-    table in run-mockups.md, which requires reading the actual log — this just
-    tells you where to look first."""
+    """Best-effort signal based on tool calls and final result text.
+
+    The authoritative grade is the PASS/PARTIAL/FAIL-* table in run-mockups.md,
+    which requires reading the actual log — this just tells you where to look first.
+
+    Grading priority:
+      1. Hard failures (nonzero exit, missing result, agent error)
+      2. Check if a deploy tool was called at all
+      3. Check if the final result text indicates successful deployment
+      4. Distinguish clean deploys from recovered ones
+    """
     if returncode != 0:
         return "ERROR (nonzero exit — see log)"
     if final_result is None:
         return "ERROR (no result message — see log)"
     if final_result.get("is_error"):
         return "ERROR (agent reported error — see log)"
-    creates = [c for c in tool_calls if c["name"] == "mcp__appian__createInterface"]
-    if not creates:
-        return "NO-DEPLOY (no createInterface call seen — check for fallback/misclassify)"
-    if tool_errors:
-        return "DEPLOY-ATTEMPTED-WITH-ERRORS (see log)"
-    return "DEPLOYED (heuristic pass — confirm against grading table)"
+
+    # Detect deploy tool calls (create or update)
+    deploy_calls = [c for c in tool_calls
+                    if c["name"] in ("mcp__appian__createInterface", "mcp__appian__updateInterface")]
+
+    # Check the final result text for deploy success indicators
+    result_text = final_result.get("result", "")
+    deploy_success_indicators = (
+        "_a-0000" in result_text  # Appian interface UUID pattern
+        or "deployed" in result_text.lower()
+        or "created and validated" in result_text.lower()
+        or "passed Appian" in result_text
+        or "accepted it" in result_text
+    )
+
+    # Separate deploy errors from incidental errors
+    deploy_error_phrases = ("Cannot create interface", "Expression validation failed",
+                            "Expression evaluation error", "API error")
+    deploy_errors = [e for e in tool_errors
+                     if any(phrase in (e or "") for phrase in deploy_error_phrases)]
+
+    if not deploy_calls:
+        if deploy_success_indicators:
+            # Edge case: result claims success but no deploy call was logged
+            # (could be a stream parsing gap)
+            return "DEPLOYED (inferred from result text — confirm in log)"
+        return "NO-DEPLOY (no createInterface/updateInterface call seen)"
+
+    # Deploy was attempted
+    if deploy_success_indicators:
+        if deploy_errors:
+            return "DEPLOYED-WITH-RECOVERY (errors encountered, then succeeded)"
+        if tool_errors:
+            # Non-deploy errors (file not found, etc.) but deploy succeeded
+            return "DEPLOYED (incidental errors unrelated to deploy)"
+        return "DEPLOYED (clean)"
+
+    # Deploy was called but result doesn't confirm success
+    if deploy_errors:
+        return "DEPLOY-FAILED (server rejected — see log)"
+    return "DEPLOY-ATTEMPTED (outcome unclear — see log)"
 
 
 def extract_signals(stdout_text):
@@ -165,8 +208,15 @@ def extract_signals(stdout_text):
     return tool_calls, tool_errors, final_result
 
 
-def run_one(test, args, repo_root, log_dir):
-    cmd = build_command(test["prompt"], args)
+def run_one(test, args, repo_root, log_dir, run_tag):
+    # Replace TEST_ names in the prompt with tagged versions to avoid collisions
+    # e.g. "TEST_EmployeeOnboarding" → "TEST_EmployeeOnboarding_2331"
+    prompt_with_tag = re.sub(
+        r'\bTEST_(\w+)',
+        rf'TEST_\1_{run_tag}',
+        test["prompt"],
+    )
+    cmd = build_command(prompt_with_tag, args)
     log_path = log_dir / f"{test['id']}.jsonl"
     print(f"[{test['id']}] ({test['type']}) running...", flush=True)
 
@@ -267,20 +317,38 @@ def main():
 
     log_dir = args.log_dir or (SCRIPT_DIR / "logs" / time.strftime("%Y%m%d-%H%M%S"))
     log_dir.mkdir(parents=True, exist_ok=True)
-    print(f"logs: {log_dir}\n")
+    # Short unique tag derived from the log directory timestamp — avoids
+    # "Name is insufficiently unique" collisions with leftover interfaces
+    # from previous runs.
+    run_tag = log_dir.name[-4:]  # last 4 chars of timestamp, e.g. "1842"
+    print(f"logs: {log_dir}  (run_tag: {run_tag})\n")
 
     results = []
     if not args.cleanup_only:
         if not tests:
             sys.exit("no tests matched --id/--type filters")
         for test in tests:
-            results.append(run_one(test, args, repo_root, log_dir))
+            results.append(run_one(test, args, repo_root, log_dir, run_tag))
 
         print("\n" + "-" * 100)
         print(f"{'id':35s} {'type':12s} {'duration':>9s}  status")
         print("-" * 100)
         for r in results:
             print(f"{r['id']:35s} {r['type']:12s} {r['duration_s']:>8.0f}s  {r['status']}")
+
+        # Summary stats
+        deployed = sum(1 for r in results if r["status"].startswith("DEPLOYED"))
+        recovered = sum(1 for r in results if "RECOVERY" in r["status"])
+        failed = sum(1 for r in results if r["status"].startswith(("ERROR", "DEPLOY-FAILED", "TIMEOUT")))
+        no_deploy = sum(1 for r in results if r["status"].startswith("NO-DEPLOY"))
+        unclear = len(results) - deployed - failed - no_deploy
+        total_time = sum(r["duration_s"] for r in results)
+        print("-" * 100)
+        print(f"{'TOTAL':35s} {len(results):<12d} {total_time:>8.0f}s  "
+              f"deployed={deployed} (clean={deployed - recovered}, recovered={recovered}) "
+              f"failed={failed} no-deploy={no_deploy}"
+              + (f" unclear={unclear}" if unclear else ""))
+
         (log_dir / "summary.json").write_text(json.dumps(results, indent=2))
 
     if args.cleanup or args.cleanup_only:

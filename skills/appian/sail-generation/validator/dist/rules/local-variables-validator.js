@@ -42,10 +42,6 @@ export function checkLocalVariablesShape(source, lines) {
         // free-form expression and is exempt from this check.
         for (let i = 0; i < topLevelArgs.length - 1; i++) {
             const raw = topLevelArgs[i].text;
-            // Strip block/line comments (and the surrounding whitespace they leave
-            // behind) before checking the declaration shape — a leading comment
-            // like `/* Form fields */\n  local!email,` is a normal, documented
-            // pattern and must not be mistaken for a non-declaration argument.
             const trimmed = stripComments(raw).trim();
             if (!isVariableDeclaration(trimmed)) {
                 const line = lineOfIndex(source, openParenIdx + topLevelArgs[i].start);
@@ -62,6 +58,8 @@ export function checkLocalVariablesShape(source, lines) {
                 });
             }
         }
+        // Check for undeclared local! references in the body expression
+        errors.push(...checkUndeclaredLocals(source, openParenIdx, topLevelArgs));
     }
     return errors;
 }
@@ -140,4 +138,51 @@ function splitTopLevelArgs(text, openParenIdx) {
 }
 function lineOfIndex(source, idx) {
     return source.slice(0, idx).split("\n").length;
+}
+/**
+ * Checks for local! references in the body (last argument) of a!localVariables()
+ * that were never declared in the preceding arguments. Only flags references that
+ * clearly don't match any declaration — conservative to avoid false positives on
+ * nested a!localVariables blocks (which declare their own scope).
+ */
+function checkUndeclaredLocals(source, openParenIdx, topLevelArgs) {
+    const errors = [];
+    if (topLevelArgs.length < 2)
+        return errors; // need at least 1 decl + 1 body
+    // Collect declared variable names from all args except the last
+    const declared = new Set();
+    for (let i = 0; i < topLevelArgs.length - 1; i++) {
+        const raw = stripComments(topLevelArgs[i].text).trim();
+        const m = /^local!\s*([a-zA-Z_][a-zA-Z0-9_]*)/.exec(raw);
+        if (m)
+            declared.add(m[1]);
+    }
+    // Scan the body (last arg) for all local! references
+    const body = topLevelArgs[topLevelArgs.length - 1].text;
+    const bodyOffset = openParenIdx + topLevelArgs[topLevelArgs.length - 1].start;
+    // Skip checking if body contains nested a!localVariables (those have their own scope)
+    if (/a!localVariables\s*\(/.test(body))
+        return errors;
+    const refPattern = /\blocal!([a-zA-Z_][a-zA-Z0-9_]*)\b/g;
+    let match;
+    const reported = new Set(); // report each undeclared name only once
+    while ((match = refPattern.exec(body)) !== null) {
+        const varName = match[1];
+        if (declared.has(varName))
+            continue;
+        if (reported.has(varName))
+            continue;
+        reported.add(varName);
+        const absoluteOffset = bodyOffset + match.index;
+        const line = lineOfIndex(source, absoluteOffset);
+        errors.push({
+            rule: "UNDECLARED_LOCAL_VARIABLE",
+            severity: "ERROR",
+            line,
+            col: 1,
+            snippet: `local!${varName}`,
+            message: `"local!${varName}" is referenced but never declared in a!localVariables(). Declared variables: ${[...declared].sort().join(", ") || "(none)"}`,
+        });
+    }
+    return errors;
 }

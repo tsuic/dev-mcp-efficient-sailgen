@@ -196,3 +196,4 @@ Prefer a hex color (e.g. `"#2C3E50"`) for every `tagColors` entry — it always 
 
 ## Output
 Report: file path, whether Pass 3 is needed.
+Do NOT describe what was generated — no field lists, no section summaries. One line: the path.

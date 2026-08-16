@@ -9,6 +9,13 @@ for interface creation — the local validator handles that. Follow ONLY the ste
 The SKILL.md references (interfaces.md for naming) apply only when deploying the final
 result to Appian via MCP tools (Step 5 below).
 
+**SPEED IS THE GOAL.** Do not produce intermediate summaries, progress updates, or
+"here's what was created" recaps between steps. The only acceptable text output is the
+final deployment confirmation AFTER `createInterface`/`updateInterface` succeeds. If a
+specialist returns a file path, proceed directly to Step 4 → Step 5 (deploy). Never
+end a turn with a description of what was generated — that means you stopped before
+deploying.
+
 **PIPELINE ROOT (absolute):** `{workspace}/skills/appian/sail-generation/`
 All shell commands (define.js, scaffold.js, validate.sh, resolve-icons.js) use this as `cwd`.
 
@@ -83,7 +90,9 @@ UI piece as a noun, with no surrounding page framing.
 
 ### OUTPUT LOCATION
 
-`/output/{uuid}/` is the default output directory for the pipeline scripts.
+The pipeline scripts write output to a temp directory automatically (printed in their stdout).
+Do NOT `mkdir` an output directory yourself — the scripts handle it.
+The resolved absolute path appears in the scaffold.js output JSON as `outputPath`.
 
 **When to use workspace staging instead:** If the specialist reports that Pass 3 edits are
 needed (e.g., avg resolution time requiring `forEach`, custom interactions), use
@@ -111,7 +120,6 @@ Build the brief:
 ```
 TASK TYPE: wizard | form | grid | dashboard | record-view | pane | component | display | layout
 UUID: {uuid}
-OUTPUT PATH: /output/{uuid}/{descriptive-slug}.sail
 PIPELINE ROOT: skills/appian/sail-generation
 
 USER REQUEST: "{verbatim}"
@@ -120,11 +128,11 @@ CONCRETE IDENTIFIERS: (paste record type UUIDs, field UUIDs, relationship UUIDs 
 
 PIPELINE REMINDER (definition agents):
 You MUST use the definition pipeline: write definition JSON → scaffold.js renders SAIL.
-NEVER write raw SAIL components by hand.
+NEVER write raw SAIL components by hand. NEVER mkdir an output directory.
 All commands run from: skills/appian/sail-generation/
   node generator/define.js --write {uuid} '{json}'
   node generator/scaffold.js --from-definition {uuid}
-  ./validate.sh /output/{uuid}/{slug}-scaffold.sail
+  ./validate.sh <outputPath from scaffold.js stdout>
 ```
 
 ### Agent dispatch table
@@ -167,6 +175,7 @@ node generator/resolve-icons.js {uuid} --auto
 ## STEP 5 — DEPLOY TO APPIAN
 
 **Always deploy after generation — do NOT stop to ask the user for UUIDs or confirmation.**
+**Deploy uses MCP tool calls (not shell commands).** Never `bash` an MCP tool name.
 
 1. **Find the app UUID yourself** — call `listApplications` (with `query` if the user named the app) and pick the matching one.
 2. **Determine create vs update** — call `listInterfaces(appUuid)` with a query matching the interface name. If it exists, update; otherwise, create.
@@ -198,6 +207,7 @@ That's 5–6 tool calls total in the parent.
 
 ## ANTI-PATTERNS
 
+- **Writing a summary or description of the generated interface before deploying** — this wastes a turn and often triggers end-of-turn behavior. The ONLY text you produce is the post-deploy confirmation. If you catch yourself writing "Here's what was created" or "The interface contains" before calling `createInterface`, stop and call `createInterface` instead.
 - **Asking the user for app UUID, interface name, or create/update choice** — look these up yourself via `listApplications` and `listInterfaces`
 - **Searching the filesystem for Appian object info** (`find`, `grep`, `ls` for UUIDs, record types, field names) — use MCP tools instead; Appian objects are on the server, not in local files
 - **Loading SKILL.md reference files** (appian-workflow-patterns.md, query-record-type-patterns.md, etc.) — the pipeline handles everything; don't load references for interface tasks

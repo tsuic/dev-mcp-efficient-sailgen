@@ -82,3 +82,4 @@ For each chunk of the user's request, ask: **is this a container (N things arran
 
 ## Output
 Report: file path, whether Pass 3 is needed, and what domain content it would address.
+Do NOT describe what was generated — no component lists, no layout summaries. One line: the path.

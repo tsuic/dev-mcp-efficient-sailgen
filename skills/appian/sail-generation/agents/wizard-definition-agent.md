@@ -100,3 +100,4 @@ Read the user's original request. Does it require ANY of these?
 
 ## Output
 Report: file path, whether Pass 3 is needed, and if so what domain content is required.
+Do NOT describe what was generated — no step lists, no field summaries. One line: the path.

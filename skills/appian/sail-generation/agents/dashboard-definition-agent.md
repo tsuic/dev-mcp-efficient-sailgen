@@ -172,3 +172,4 @@ There is NO fixed layout — match the user's request. If the user doesn't speci
 
 ## Output
 Report: file path, whether Pass 3 is needed.
+Do NOT describe what was generated — no KPI lists, no chart summaries. One line: the path.

@@ -127,6 +127,19 @@ const FORBIDDEN_RULES = [
         message: 'SAIL doesn\'t support backslash-escaped quotes — to embed a literal " inside a string you double it (""), not \\".',
         severity: "ERROR",
     },
+    // Non-existent components the LLM commonly hallucinates
+    {
+        id: "NONEXISTENT_COMPONENT",
+        pattern: /\ba!timeField\s*\(/g,
+        message: "a!timeField does not exist. Use a!textField with placeholder \"HH:MM\" for time input, or a!timeDisplayField for read-only display.",
+        severity: "ERROR",
+    },
+    {
+        id: "NONEXISTENT_COMPONENT",
+        pattern: /\ba!tabContainer(?:Layout)?\s*\(/g,
+        message: "a!tabContainer / a!tabContainerLayout do not exist. Use a!tabLayout with a!tabItem tabs.",
+        severity: "ERROR",
+    },
 ];
 /**
  * Strip string literals from a line for pattern matching purposes.

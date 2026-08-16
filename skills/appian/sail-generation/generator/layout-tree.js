@@ -651,7 +651,7 @@ registerLeaf("banner", {
       // "close" is not a verified alias in rich-text-icon-aliases.md — using
       // it would fail icon validation. "times" is the closest verified
       // equivalent (the standard X/dismiss glyph).
-      trailingItem = `${i}          a!sideBySideItem(\n${i}            item: a!richTextDisplayField(\n${i}              labelPosition: "COLLAPSED",\n${i}              value: a!richTextIcon(\n${i}                icon: "times",\n${i}                color: "#000000",\n${i}                link: a!dynamicLink(),\n${i}                linkStyle: "STANDALONE",\n${i}                accessibilityText: "Dismiss ${label.replace(/"/g, '""')}"\n${i}              ),\n${i}              marginAbove: "NONE",\n${i}              marginBelow: "NONE"\n${i}            ),\n${i}            width: "MINIMIZE"\n${i}          ),\n`;
+      trailingItem = `${i}          a!sideBySideItem(\n${i}            item: a!richTextDisplayField(\n${i}              labelPosition: "COLLAPSED",\n${i}              value: a!richTextIcon(\n${i}                icon: "times",\n${i}                color: "#000000",\n${i}                link: a!dynamicLink(),\n${i}                linkStyle: "STANDALONE",\n${i}                altText: "Dismiss ${label.replace(/"/g, '""')}"\n${i}              ),\n${i}              marginAbove: "NONE",\n${i}              marginBelow: "NONE"\n${i}            ),\n${i}            width: "MINIMIZE"\n${i}          ),\n`;
     } else if (Array.isArray(node.buttons) && node.buttons.length > 0) {
       // 1 action -> SECONDARY/SOLID; 2 actions -> SOLID (primary) + LINK (secondary);
       // all SMALL — per messages.md's action guidance.

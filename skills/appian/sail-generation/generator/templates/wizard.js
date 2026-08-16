@@ -227,12 +227,13 @@ function renderField(field, varName, indent) {
 
     case "time":
       return [
-        `${i}a!timeField(`,
+        `${i}a!textField(`,
         `${i}  label: "${label}",`,
         `${i}  labelPosition: "ABOVE",`,
         `${i}  value: ${varName},`,
         `${i}  saveInto: ${varName},`,
         ...optParams,
+        `${i}  placeholder: "HH:MM",`,
         `${i}  required: ${required}`,
         `${i})`,
       ].join("\n");
@@ -246,7 +247,8 @@ function renderField(field, varName, indent) {
         `${i}  value: ${varName},`,
         `${i}  saveInto: ${varName},`,
         ...optParams,
-        `${i}  height: "${rteHeight}"`,
+        `${i}  height: "${rteHeight}",`,
+        `${i}  sizeLimit: 10000`,
         `${i})`,
       ].join("\n");
     }
