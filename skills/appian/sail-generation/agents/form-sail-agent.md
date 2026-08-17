@@ -37,7 +37,7 @@ Edit the existing `.sail` file to add ONLY:
 # node generator/timing.js {uuid} record "llm:1" "start"
 # ... your edits to the .sail file ...
 # node generator/timing.js {uuid} record "llm:1" "end"
-./validate.sh output/{uuid}/{slug}.sail   # must PASS
+./validate.sh "<absolute .sail path from the dispatch brief>"   # must PASS
 # node generator/timing.js {uuid} record "complete" "end"
 ```
 

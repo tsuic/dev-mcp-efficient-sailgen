@@ -94,9 +94,13 @@ a shape) or a leaf (one piece of content)?
    Shell-escape single quotes as `'\''`. Fix JSON and re-run until exit 0.
 2. **Scaffold**:
    ```bash
-   node generator/scaffold.js --from-definition {uuid}
-   ./validate.sh output/{uuid}/{slug}-scaffold.sail
-   mv output/{uuid}/{slug}-scaffold.sail output/{uuid}/{slug}.sail
+   # scaffold.js prints single-line JSON on stdout; `outputPath` is the ABSOLUTE path it
+   # wrote. Do not assemble a relative `output/{uuid}/...` path — the default output root is a
+   # temp dir, so a relative path resolves to nothing (or creates a junk dir in the repo).
+   OUT=$(node generator/scaffold.js --from-definition {uuid} | sed -n 's/.*"outputPath": *"\([^"]*\)".*/\1/p')
+   ./validate.sh "$OUT"                    # must PASS
+   mv "$OUT" "${OUT%-scaffold.sail}.sail"  # drop the -scaffold suffix
+   echo "${OUT%-scaffold.sail}.sail"       # this absolute path is what you report back
    ```
 3. **Defer schema-inexpressible config** to Pass 3 (report what's needed).
 

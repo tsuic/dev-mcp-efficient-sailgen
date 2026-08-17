@@ -36,9 +36,13 @@ You NEVER write SAIL syntax for these three types. You ONLY write JSON and run C
 
 ```bash
 node generator/define.js --write {uuid} '{...json...}'
-node generator/scaffold.js --from-definition {uuid}
-./validate.sh output/{uuid}/{slug}-scaffold.sail
-mv output/{uuid}/{slug}-scaffold.sail output/{uuid}/{slug}.sail
+# scaffold.js prints single-line JSON on stdout; `outputPath` is the ABSOLUTE path it
+# wrote. Do not assemble a relative `output/{uuid}/...` path — the default output root is a
+# temp dir, so a relative path resolves to nothing (or creates a junk dir in the repo).
+OUT=$(node generator/scaffold.js --from-definition {uuid} | sed -n 's/.*"outputPath": *"\([^"]*\)".*/\1/p')
+./validate.sh "$OUT"                    # must PASS
+mv "$OUT" "${OUT%-scaffold.sail}.sail"  # drop the -scaffold suffix
+echo "${OUT%-scaffold.sail}.sail"       # this absolute path is what you report back
 ```
 
 Shell-escape single quotes as `'\''`. If `define.js` fails, fix the JSON and re-run until exit 0.

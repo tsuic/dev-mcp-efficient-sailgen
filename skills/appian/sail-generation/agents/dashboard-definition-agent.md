@@ -31,9 +31,13 @@ Chain these into a single Bash call — they always run in sequence, and `&&` st
 the chain (and surfaces the error) if any step fails:
 
 ```bash
-node generator/scaffold.js --from-definition {uuid} && \
-  ./validate.sh output/{uuid}/{slug}-scaffold.sail && \
-  mv output/{uuid}/{slug}-scaffold.sail output/{uuid}/{slug}.sail
+# scaffold.js prints single-line JSON on stdout; `outputPath` is the ABSOLUTE path it
+# wrote. Do not assemble a relative `output/{uuid}/...` path — the default output root is a
+# temp dir, so a relative path resolves to nothing (or creates a junk dir in the repo).
+OUT=$(node generator/scaffold.js --from-definition {uuid} | sed -n 's/.*"outputPath": *"\([^"]*\)".*/\1/p')
+./validate.sh "$OUT"                    # must PASS
+mv "$OUT" "${OUT%-scaffold.sail}.sail"  # drop the -scaffold suffix
+echo "${OUT%-scaffold.sail}.sail"       # this absolute path is what you report back
 ```
 
 ## Step 3 — Done or Need Pass 3?
