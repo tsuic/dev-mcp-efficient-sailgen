@@ -25,7 +25,7 @@ const { resolveTheme } = require("../theme");
 // ---------------------------------------------------------------------------
 
 function renderFromDefinition(def) {
-  const { title, entityName, sections, headerIcon, headerSubtitle } = def;
+  const { title, entityName, sections, headerIcon, headerSubtitle, submitLabel, cancelLabel } = def;
   const theme = resolveTheme(def.theme);
 
   // Collect all field variables across all sections
@@ -118,7 +118,7 @@ ${sectionsSail}
     buttons: a!buttonLayout(
       primaryButtons: {
         a!buttonWidget(
-          label: if(a!defaultValue(local!isUpdate, false()), "Update", "Submit"),
+          label: if(a!defaultValue(local!isUpdate, false()), "Update", "${submitLabel || "Submit"}"),
           style: "SOLID",
           color: "ACCENT",
           submit: true(),
@@ -128,7 +128,7 @@ ${sectionsSail}
       secondaryButtons: {
         /* TODO-CONVERTER: Transform saveInto to ri!cancel */
         a!buttonWidget(
-          label: "Cancel",
+          label: "${cancelLabel || "Cancel"}",
           style: "OUTLINE",
           saveInto: a!save(local!cancel, true())
         )

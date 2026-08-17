@@ -169,41 +169,107 @@ function determinePageType($) {
 // Step 2: Extract theme colors
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Parse :root and html custom property declarations from <style> tags */
+function buildCssVarLookup($) {
+  const styleText = $("style").text();
+  const vars = {};
+  // Match :root { ... } or html { ... } blocks
+  const rootBlockRegex = /(?::root|html)\s*\{([^}]+)\}/gi;
+  let blockMatch;
+  while ((blockMatch = rootBlockRegex.exec(styleText)) !== null) {
+    const block = blockMatch[1];
+    // Match --name: value declarations
+    const propRegex = /--([\w-]+)\s*:\s*([^;]+)/g;
+    let propMatch;
+    while ((propMatch = propRegex.exec(block)) !== null) {
+      vars[propMatch[1].trim()] = propMatch[2].trim();
+    }
+  }
+  return vars;
+}
+
+/** Resolve a CSS value that may contain var(--name) references */
+function resolveCssVar(value, cssVars) {
+  if (!value || !value.includes("var(")) return value;
+  return value.replace(/var\(\s*--([\w-]+)\s*(?:,\s*([^)]+))?\)/g, (_, name, fallback) => {
+    return cssVars[name] || (fallback ? fallback.trim() : null) || value;
+  });
+}
+
+/** Resolve a color value to hex — handles var(), rgb(), and raw hex */
+function resolveColor(value, cssVars) {
+  if (!value) return null;
+  let resolved = resolveCssVar(value, cssVars);
+  if (!resolved) return null;
+  // Already hex
+  if (resolved.startsWith("#")) return resolved;
+  // Try rgb()
+  const rgb = resolved.match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/);
+  if (rgb) {
+    const hex = (n) => parseInt(n).toString(16).padStart(2, "0");
+    return `#${hex(rgb[1])}${hex(rgb[2])}${hex(rgb[3])}`;
+  }
+  // Unresolvable (named color, hsl, etc.) — warn and skip
+  warn(`Could not resolve color to hex: "${resolved}"`);
+  return null;
+}
+
 function extractTheme($) {
   const theme = {};
   const body = $("body");
+  const cssVars = buildCssVarLookup($);
 
   // Page background from body or inline style
   const bodyBgFromCSS = extractBodyBgFromStyleTag($);
-  if (bodyBgFromCSS) theme.pageBg = bodyBgFromCSS;
+  if (bodyBgFromCSS) {
+    const resolved = resolveColor(bodyBgFromCSS, cssVars);
+    if (resolved) theme.pageBg = resolved;
+  }
 
   const bodyInline = inlineStyle(body, "background-color");
-  if (bodyInline) theme.pageBg = bodyInline;
+  if (bodyInline) {
+    const resolved = resolveColor(bodyInline, cssVars);
+    if (resolved) theme.pageBg = resolved;
+  }
 
   // Card background
   const card = $(".card, [data-sail-component='cardLayout']").first();
   if (card.length) {
-    const cardBg = extractBgFromStylesheet($, ".card") || inlineStyle(card, "background-color");
-    if (cardBg) theme.cardBg = cardBg;
+    const raw = extractBgFromStylesheet($, ".card") || inlineStyle(card, "background-color");
+    const resolved = resolveColor(raw, cssVars);
+    if (resolved) theme.cardBg = resolved;
   }
 
   // Header/billboard background
   const header = $(".billboard, .hero-header, [data-sail-component='billboardLayout']").first();
   if (header.length) {
-    const headerBg = inlineStyle(header, "background-color");
-    if (headerBg) theme.headerBg = headerBg;
+    const raw = inlineStyle(header, "background-color");
+    const resolved = resolveColor(raw, cssVars);
+    if (resolved) theme.headerBg = resolved;
   }
 
   // KPI colors
   const kpiValue = $(".kpi-value").first();
   if (kpiValue.length) {
-    const kpiValColor = extractBgFromStylesheet($, ".kpi-value", "color");
-    if (kpiValColor) theme.kpiValueColor = kpiValColor;
+    const raw = extractBgFromStylesheet($, ".kpi-value", "color");
+    const resolved = resolveColor(raw, cssVars);
+    if (resolved) theme.kpiValueColor = resolved;
   }
   const kpiName = $(".kpi-name").first();
   if (kpiName.length) {
-    const kpiLabColor = extractBgFromStylesheet($, ".kpi-name", "color");
-    if (kpiLabColor) theme.kpiLabelColor = kpiLabColor;
+    const raw = extractBgFromStylesheet($, ".kpi-name", "color");
+    const resolved = resolveColor(raw, cssVars);
+    if (resolved) theme.kpiLabelColor = resolved;
+  }
+
+  // Also extract text colors from :root vars that look theme-relevant
+  if (cssVars["text"] && !theme.kpiValueColor) {
+    const resolved = resolveColor(cssVars["text"], cssVars);
+    if (resolved) theme.kpiValueColor = resolved;
+  }
+  if (cssVars["text-muted"] && !theme.kpiLabelColor) {
+    const resolved = resolveColor(cssVars["text-muted"], cssVars);
+    if (resolved) theme.kpiLabelColor = resolved;
   }
 
   return Object.keys(theme).length ? theme : undefined;
@@ -508,9 +574,9 @@ function extractGrid($, tableEl) {
 
 function toCamelCase(str) {
   return str
-    .replace(/[^a-zA-Z0-9 ]/g, "")
+    .replace(/[^a-zA-Z0-9 _-]/g, "")
     .trim()
-    .split(/\s+/)
+    .split(/[\s_-]+/)
     .map((w, i) => (i === 0 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
     .join("");
 }
@@ -524,6 +590,8 @@ const INPUT_TYPE_MAP = {
   number: "number",
   date: "date",
   password: "encrypted",
+  checkbox: "boolean",
+  radio: "radio",
 };
 
 function extractFormField($, el) {
@@ -544,8 +612,12 @@ function extractFormField($, el) {
     field.choices = [];
     fieldEl.find("option").each((_, opt) => {
       const optEl = $(opt);
-      const val = optEl.attr("value") || text(optEl);
-      if (val) field.choices.push({ label: text(optEl), value: val });
+      // Skip disabled placeholder options (e.g. "Select an option")
+      if (optEl.attr("disabled") !== undefined) return;
+      const val = optEl.attr("value");
+      // Skip options with empty or missing value attribute
+      if (val === undefined || val === null || val === "") return;
+      field.choices.push({ label: text(optEl), value: val });
     });
   } else if (fieldEl.is("textarea")) {
     field.type = "paragraph";
@@ -1004,13 +1076,37 @@ function buildFormSections($) {
     });
   } else {
     // No explicit sections — group all fields into one section
+    // Try to derive label from page-level heading
+    const pageHeading = body.find("h1, .form-title, .page-title").first();
+    const label = pageHeading.length ? text(pageHeading) : "Details";
     const rows = buildFormRows($, body);
     if (rows.length) {
-      sections.push({ label: "Details", rows });
+      sections.push({ label, rows });
     }
   }
 
   return sections;
+}
+
+/** Extract button labels from the form for the definition's submitLabel/cancelLabel */
+function extractFormButtons($) {
+  const body = $("body");
+  const buttons = [];
+
+  // Look for explicit button elements (not inside card-choice groups)
+  body.find("button, input[type='submit'], a.btn, .btn").each((_, el) => {
+    const btnEl = $(el);
+    // Skip buttons inside card-choice groups or nav elements
+    if (btnEl.closest(".card-choice-group, .card-choice, nav, .stepper-panel, .wizard-steps").length) return;
+    const label = text(btnEl) || btnEl.attr("value") || "";
+    if (label) {
+      const type = btnEl.attr("type");
+      const isSubmit = type === "submit" || btnEl.hasClass("primary") || btnEl.hasClass("btn-primary");
+      buttons.push({ label, isSubmit });
+    }
+  });
+
+  return buttons;
 }
 
 function buildFormRows($, container) {
@@ -1029,8 +1125,8 @@ function buildFormRows($, container) {
 
     const field = extractFormField($, fieldEl);
     if (field && field.name) {
-      // Clean up the name
-      field.name = toCamelCase(field.label || field.name);
+      // Prefer the HTML name attribute (data contract); fall back to label-derived
+      field.name = toCamelCase(field.name || field.label);
       fields.push(field);
     }
   });
@@ -1302,6 +1398,20 @@ function buildDefinition($) {
 
     case "form":
       definition.sections = buildFormSections($);
+      // Extract button labels from the HTML
+      const formButtons = extractFormButtons($);
+      if (formButtons.length) {
+        const primary = formButtons.find((b) => b.isSubmit) || formButtons[formButtons.length - 1];
+        const secondary = formButtons.find((b) => !b.isSubmit && b !== primary);
+        if (primary && primary.label !== "Submit") definition.submitLabel = primary.label;
+        if (secondary && secondary.label !== "Cancel") definition.cancelLabel = secondary.label;
+      }
+      // Extract subtitle from <p> following the main heading
+      const formHeading = body.find("h1, .form-title, .page-title").first();
+      if (formHeading.length) {
+        const subtitle = formHeading.next("p, .subtitle, .form-subtitle");
+        if (subtitle.length) definition.headerSubtitle = text(subtitle);
+      }
       break;
 
     case "layout":
