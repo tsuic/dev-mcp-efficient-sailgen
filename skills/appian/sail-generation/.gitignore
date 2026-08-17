@@ -1,3 +1,6 @@
 # Node dependencies (not committed — validator dist/ is pre-compiled)
 generator/node_modules/
 validator/node_modules/
+
+# One-time converter data utility (large scraped assets, not committed)
+tools/converter-data/

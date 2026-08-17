@@ -105,6 +105,14 @@ function renderPaneContent(content, paneIndex, state, indent, theme) {
       return renderDetailContent(content, indent);
     case "placeholder":
       return renderPlaceholderContent(indent);
+    case "layout": {
+      // Layout-tree content — the pane contains arbitrary nested containers/leaves.
+      const { renderNode } = require("../layout-tree");
+      const layoutState = { kpiOffset: state.kpiOffset, gridIndex: 0, theme, itemListIndex: 0 };
+      const result = renderNode(content.root, indent, layoutState);
+      state.kpiOffset = layoutState.kpiOffset || state.kpiOffset;
+      return result;
+    }
     default:
       return `${indent}/* Unknown pane content type: ${content.type} */`;
   }
@@ -135,6 +143,14 @@ function collectVarDecls(panes) {
       decls.push(
         `  /* TODO-CONVERTER: Replace local!pane${pi + 1}GridData with record type data source */\n  local!pane${pi + 1}GridData: {\n${rows}\n  },`
       );
+    }
+    if (content.type === "layout") {
+      // Collect variable declarations from the layout-tree root node
+      const { collectVarDecls: collectLayoutVarDecls } = require("../layout-tree");
+      const layoutState = { kpiOffset, gridIndex: 0, itemListIndex: 0 };
+      const layoutDecls = collectLayoutVarDecls(content.root, layoutState);
+      if (layoutDecls) decls.push(layoutDecls);
+      kpiOffset = layoutState.kpiOffset || kpiOffset;
     }
   });
 

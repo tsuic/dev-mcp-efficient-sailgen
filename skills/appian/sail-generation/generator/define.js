@@ -568,7 +568,7 @@ const RECORD_VIEW_FIELD_TYPES = ["text", "paragraph", "richtext"];
 // Pane schema constants — a!pane's width enum is a superset of gridColumn
 // widths (adds EXTRA_NARROW/NARROW_PLUS/MEDIUM_PLUS/WIDE_PLUS, no ICON values).
 const PANE_WIDTHS = ["EXTRA_NARROW", "NARROW", "NARROW_PLUS", "MEDIUM", "MEDIUM_PLUS", "WIDE", "WIDE_PLUS", "AUTO"];
-const PANE_CONTENT_TYPES = ["nav", "grid", "chart", "kpis", "detail", "placeholder"];
+const PANE_CONTENT_TYPES = ["nav", "grid", "chart", "kpis", "detail", "placeholder", "layout"];
 
 function isValidTagColor(color) {
   return TAG_COLORS.includes(color) || /^#[0-9A-Fa-f]{6}$/.test(color);
@@ -1049,6 +1049,16 @@ function validatePaneContent(content, context, errors) {
       break;
     case "placeholder":
       // No data required — an intentionally empty pane (e.g. "select an item to view details")
+      break;
+    case "layout":
+      // Layout-tree content — validates using the same recursive layout-tree validator.
+      // The content object IS the layout-tree root node (container or leaf).
+      if (!content.root || typeof content.root !== "object") {
+        errors.push(`${context}: "layout" content requires a "root" object (a layout-tree node)`);
+      } else {
+        const { validateNode } = require("./layout-tree");
+        validateNode(content.root, `${context}.root`, errors);
+      }
       break;
   }
 }
