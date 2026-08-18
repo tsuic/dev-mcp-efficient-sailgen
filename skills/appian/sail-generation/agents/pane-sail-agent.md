@@ -22,7 +22,7 @@ Edit the existing `.sail` file to add ONLY:
 ## Documentation to Read (before editing)
 1. `guidelines/ui-guidelines/layouts/pane-layout-instructions.md`
 2. `guidelines/logic-guidelines/null-safety-quick-ref.md`
-3. Do NOT read `rich-text-icon-aliases.md` — use `"circle"` for any icon values. The orchestrator resolves icons in a final pass.
+3. Do NOT read `rich-text-icon-aliases.md`. For icons use `a descriptive keyword` — the resolve-icons pass maps concepts to valid aliases.
 
 ## Pane-Specific SAIL Rules
 
@@ -121,7 +121,6 @@ if(
 - [ ] No paneLayout nested inside column/card/section
 - [ ] No regex; no `ri!`/`recordtype!`
 - [ ] Every `a!columnsLayout` has ≥1 AUTO column
-- [ ] All icons use `"circle"` placeholder (self-check from memory of what you wrote — no need to search/grep the file; icon resolution is a separate later pass over the whole file, not this agent's job)
 - [ ] No `showSearchBox`/`userFilters`/`recordActions` with local data
 - [ ] `save!value` only inside `a!save()`
 - [ ] `./validate.sh` exits 0

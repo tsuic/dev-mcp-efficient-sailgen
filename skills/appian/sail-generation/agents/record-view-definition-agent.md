@@ -105,7 +105,7 @@ Use this for any "N records, same few fields" feed — never `card`/`cardGroup` 
 | `items[].title` | ✅ | Bold header line (e.g. commenter name) |
 | `items[].text` | ✅ | Body line (e.g. comment content) |
 | `items[].avatarText` | Required if `avatarType` is `"text"` (default) | 1-3 char initials |
-| `items[].avatarIcon` | Required if `avatarType` is `"icon"` | Use `"circle"` placeholder |
+| `items[].avatarIcon` | Required if `avatarType` is `"icon"` | Best-guess icon name (e.g. "user-circle", "cog") |
 | `items[].avatarColor` | Optional | Hex color; cycles through a default palette if omitted |
 | `items[].trailing` | Required if `trailingType` is `"text"` (default) | e.g. `"2 hours ago"` |
 | `items[].tag` / `items[].tagColor` | Required if `trailingType` is `"tag"` | `tagColor`: ACCENT/POSITIVE/NEGATIVE/SECONDARY or hex |

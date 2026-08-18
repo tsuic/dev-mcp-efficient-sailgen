@@ -50,6 +50,8 @@ Build the `dataBinding` block field-by-field from the Concrete_Identifiers you r
 - `relatedRecordData`: one entry per one-to-many relationship needed, with `relationship`, `localName`, `limit` (1–250), `fields`, optional `sort` (`{field, ascending}`, `field` qualified against the *related* record type), and optional `itemFields` (`{title, text, avatarText?, trailing?}`) when the per-item rendering reduces to a simple card
 - `todos`: one string per requested field/relationship you could not resolve to a Concrete_Identifier — never fabricate one instead
 
+**Page title from a queried field:** If the page title should display a field value (not a static label), set `titleFieldRef` at the top level of the definition to the same field reference or localName that appears in `dataBinding.fields`. The scaffold renders the header title from the queried value instead of the static `recordName`.
+
 Use `keyAttributes`/`sections`/`layout` to actually DISPLAY the fields `dataBinding` queried — this is the normal way to surface queried data with zero hand-written SAIL, not a fallback. Every `keyAttributes[]`/`sections[].fields[]` entry supports a `fieldRef` in place of `value`:
 - `fieldRef` set to a relationship-qualified `dataBinding.fields[].localName` (e.g. `"statusLabel"`) or a `dataBinding.relatedRecordData[].localName` -> resolves to that entry's own `local!{localName}` binding.
 - `fieldRef` set to a plain field reference string already listed verbatim in `dataBinding.fields` -> resolves to `a!defaultValue({entity record local!}['{fieldRef}'], "-")` inline, same as everywhere else in the Query_Prologue.
@@ -92,6 +94,28 @@ echo "${OUT%-scaffold.sail}.sail"       # this absolute path is what you report 
 
 `dataBinding` is a new, optional top-level field on the existing `"record-view"` Definition_JSON — it does not introduce a new `type`. `keyAttributes`/`sections`/`layout` use the exact same schema as `record-view-definition-agent.md` (reuse, don't reinvent) and render alongside `dataBinding` in the same definition when both are present.
 
+### `titleFieldRef` — dynamic page title
+
+A top-level optional field on the definition. When set, the page header title displays the value of a queried field instead of the static `recordName` string:
+
+| Field | Required | Shape | Notes |
+|---|---|---|---|
+| `titleFieldRef` | optional | non-empty string | Must match a `dataBinding.fields[].localName` or a plain field reference string already in `dataBinding.fields`. The scaffold renders the title as the resolved local!/field expression. |
+
+Use this when the page title should be dynamic data (e.g. a ticket's title, a case's name) rather than a fixed label. The `recordName` field is still required (for the code comment/fallback) but `titleFieldRef` takes priority for the rendered header when present.
+
+Example:
+```json
+{
+  "type": "record-view",
+  "title": "ITSM Ticket Summary",
+  "entityName": "Ticket",
+  "recordName": "TCK-10432",
+  "titleFieldRef": "recordType!{08e470c4-...}ITSM Ticket.fields.{ac16ddcc-...}title",
+  "dataBinding": { ... }
+}
+```
+
 ### `dataBinding` fields
 
 | Field | Required | Shape | Notes |
@@ -129,9 +153,12 @@ An alternative to `value` on any `keyAttributes[]` or `sections[].fields[]` entr
 
 Example — showing a relationship-qualified status lookup as a tag, and a plain field as text:
 ```json
+"titleFieldRef": "recordType!{uuid}ITSM Ticket.fields.{uuid}title",
 "keyAttributes": [
   { "name": "status", "label": "Status", "fieldRef": "statusLabel", "tag": true,
-    "tagColors": { "New": "ACCENT", "In Progress": "SECONDARY", "Resolved": "POSITIVE" } }
+    "tagColors": { "New": "ACCENT", "In Progress": "SECONDARY", "Resolved": "POSITIVE" } },
+  { "name": "priority", "label": "Priority", "fieldRef": "priorityLabel" },
+  { "name": "category", "label": "Category", "fieldRef": "categoryLabel" }
 ],
 "sections": [
   { "label": "Details", "fields": [
@@ -170,9 +197,10 @@ Order is preserved — each pair's `field` must be a non-empty string and `value
 ```json
 {
   "type": "record-view",
-  "title": "ITSM Ticket Detail",
+  "title": "ITSM Ticket Summary",
   "entityName": "Ticket",
   "recordName": "TCK-10432",
+  "titleFieldRef": "recordType!{08e470c4-0802-4f4b-b3c2-407d7486d21a}ITSM Ticket.fields.{ac16ddcc-c365-46c6-8425-64d428dbd1cb}title",
   "dataBinding": {
     "recordType": "recordType!{08e470c4-0802-4f4b-b3c2-407d7486d21a}ITSM Ticket",
     "identifier": "recordType!{08e470c4-0802-4f4b-b3c2-407d7486d21a}ITSM Ticket.fields.{7059af26-0ad6-4c88-92d1-f96e7260137c}id",
@@ -183,6 +211,16 @@ Order is preserved — each pair's `field` must be a non-empty string and `value
         "relationship": "recordType!{08e470c4-0802-4f4b-b3c2-407d7486d21a}ITSM Ticket.relationships.{2ec7c8b5-cbfa-4b10-aab5-bdfa267b516d}status",
         "field": "recordType!{08e470c4-0802-4f4b-b3c2-407d7486d21a}ITSM Ticket.relationships.{2ec7c8b5-cbfa-4b10-aab5-bdfa267b516d}status.fields.{0c17d4da-217a-4c5c-a23f-3583a5fa4d04}label",
         "localName": "statusLabel"
+      },
+      {
+        "relationship": "recordType!{08e470c4-0802-4f4b-b3c2-407d7486d21a}ITSM Ticket.relationships.{5da7a4f8-13bd-46b6-8fa5-454265b44d68}priority",
+        "field": "recordType!{08e470c4-0802-4f4b-b3c2-407d7486d21a}ITSM Ticket.relationships.{5da7a4f8-13bd-46b6-8fa5-454265b44d68}priority.fields.{3ea8520b-e6be-4042-8d53-b695a079e519}label",
+        "localName": "priorityLabel"
+      },
+      {
+        "relationship": "recordType!{08e470c4-0802-4f4b-b3c2-407d7486d21a}ITSM Ticket.relationships.{671395b5-741c-46a4-a521-2c5465f0b913}category",
+        "field": "recordType!{08e470c4-0802-4f4b-b3c2-407d7486d21a}ITSM Ticket.relationships.{671395b5-741c-46a4-a521-2c5465f0b913}category.fields.{50e66859-b76f-4c8d-a279-f17216217693}label",
+        "localName": "categoryLabel"
       }
     ],
     "relatedRecordData": [
@@ -210,7 +248,20 @@ Order is preserved — each pair's `field` must be a non-empty string and `value
     "todos": [
       "SLA breach countdown — no aggregation shape in schema, needs hand-written expression"
     ]
-  }
+  },
+  "keyAttributes": [
+    { "name": "status", "label": "Status", "fieldRef": "statusLabel" },
+    { "name": "priority", "label": "Priority", "fieldRef": "priorityLabel" },
+    { "name": "category", "label": "Category", "fieldRef": "categoryLabel" }
+  ],
+  "sections": [
+    {
+      "label": "Ticket Details",
+      "fields": [
+        { "name": "title", "label": "Title", "fieldRef": "recordType!{08e470c4-0802-4f4b-b3c2-407d7486d21a}ITSM Ticket.fields.{ac16ddcc-c365-46c6-8425-64d428dbd1cb}title" }
+      ]
+    }
+  ]
 }
 ```
 

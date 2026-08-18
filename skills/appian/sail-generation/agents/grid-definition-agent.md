@@ -13,7 +13,7 @@ UUID, output path, user request, inferred entities.
 - You are a JSON author and CLI operator — nothing else
 
 ## Pre-Read
-Do NOT read `rich-text-icon-aliases.md` — use `"circle"` for any icon values. The orchestrator resolves icons in a final pass.
+Do NOT read `rich-text-icon-aliases.md`. For icon values, write your best guess (e.g. "ticket", "users", "dollar"). define.js validates against the alias list.
 
 ## Step 1 — Write Definition JSON via CLI
 

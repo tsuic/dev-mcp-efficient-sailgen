@@ -35,7 +35,7 @@ Only proceed with the hand-written path (rest of this doc) for chunks that are g
 **other / free-form SAIL:** Read only what the specific request requires. For dynamic data: read `logic-guidelines/LOGIC-PRIMARY-REFERENCE.md` and `logic-guidelines/null-safety-quick-ref.md`.
 
 ### Icons — use placeholders:
-Use `"circle"` for ALL icon values (icon, stampIcon, labelIcon parameters). Do NOT read `rich-text-icon-aliases.md` — the orchestrator runs a final icon-resolution pass after validation that replaces placeholders with domain-appropriate icons.
+For all icon values, use `a descriptive keyword` (e.g. "user-count", "revenue"). Do NOT read `rich-text-icon-aliases.md` — the resolve-icons pass maps concepts to valid aliases.
 
 ## Layout Rules
 
@@ -173,7 +173,6 @@ For arrays/loops/dynamic data: read `logic-guidelines/LOGIC-PRIMARY-REFERENCE.md
 - [ ] No regex; no `ri!`/`recordtype!`
 - [ ] Every `a!columnsLayout` has ≥1 AUTO column
 - [ ] Only richTextItems/Icons inside richTextDisplayField
-- [ ] All icons use `"circle"` placeholder (self-check from memory of what you wrote — no need to search/grep the file; icon resolution is a separate later pass over the whole file, not this agent's job)
 - [ ] No `showSearchBox`/`userFilters`/`recordActions` with local data
 - [ ] `save!value` only inside `a!save()`
 - [ ] Grid columns use only `fv!row`

@@ -1,0 +1,169 @@
+{
+  "componentType": "tabContainerColumns",
+  "tabs": [
+    {
+      "label": "All",
+      "content": {
+        "componentType": "itemList",
+        "items": [
+          {
+            "avatar": {
+              "componentType": "textAvatar",
+              "initials": "JS",
+              "backgroundColor": "ACCENT"
+            },
+            "title": "John Smith",
+            "text": "Your profile update has been completed",
+            "trailingTag": {
+              "componentType": "tagComponent",
+              "text": "Info",
+              "backgroundColor": "ACCENT"
+            }
+          },
+          {
+            "avatar": {
+              "componentType": "textAvatar",
+              "initials": "MJ",
+              "backgroundColor": "SECONDARY"
+            },
+            "title": "Maria Johnson",
+            "text": "System maintenance scheduled for tomorrow",
+            "trailingTag": {
+              "componentType": "tagComponent",
+              "text": "Warning",
+              "backgroundColor": "SECONDARY"
+            }
+          },
+          {
+            "avatar": {
+              "componentType": "textAvatar",
+              "initials": "SG",
+              "backgroundColor": "NEGATIVE"
+            },
+            "title": "Sara Garcia",
+            "text": "Critical security update required",
+            "trailingTag": {
+              "componentType": "tagComponent",
+              "text": "Alert",
+              "backgroundColor": "NEGATIVE"
+            }
+          },
+          {
+            "avatar": {
+              "componentType": "textAvatar",
+              "initials": "AB",
+              "backgroundColor": "POSITIVE"
+            },
+            "title": "Alex Brown",
+            "text": "Your document has been approved",
+            "trailingTag": {
+              "componentType": "tagComponent",
+              "text": "Success",
+              "backgroundColor": "POSITIVE"
+            }
+          },
+          {
+            "avatar": {
+              "componentType": "textAvatar",
+              "initials": "CD",
+              "backgroundColor": "ACCENT"
+            },
+            "title": "Chris Davis",
+            "text": "New message from your team",
+            "trailingTag": {
+              "componentType": "tagComponent",
+              "text": "Info",
+              "backgroundColor": "ACCENT"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "label": "Unread",
+      "content": {
+        "componentType": "itemList",
+        "items": [
+          {
+            "avatar": {
+              "componentType": "textAvatar",
+              "initials": "TS",
+              "backgroundColor": "NEGATIVE"
+            },
+            "title": "Taylor Smith",
+            "text": "Urgent action required on pending approval",
+            "trailingTag": {
+              "componentType": "tagComponent",
+              "text": "Alert",
+              "backgroundColor": "NEGATIVE"
+            }
+          },
+          {
+            "avatar": {
+              "componentType": "textAvatar",
+              "initials": "PR",
+              "backgroundColor": "SECONDARY"
+            },
+            "title": "Patricia Rodriguez",
+            "text": "Upcoming deadline reminder",
+            "trailingTag": {
+              "componentType": "tagComponent",
+              "text": "Warning",
+              "backgroundColor": "SECONDARY"
+            }
+          },
+          {
+            "avatar": {
+              "componentType": "textAvatar",
+              "initials": "EF",
+              "backgroundColor": "POSITIVE"
+            },
+            "title": "Emily Foster",
+            "text": "Your request has been successfully processed",
+            "trailingTag": {
+              "componentType": "tagComponent",
+              "text": "Success",
+              "backgroundColor": "POSITIVE"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "label": "Mentions",
+      "content": {
+        "componentType": "itemList",
+        "items": [
+          {
+            "avatar": {
+              "componentType": "textAvatar",
+              "initials": "JK",
+              "backgroundColor": "ACCENT"
+            },
+            "title": "James Kumar",
+            "text": "@You were mentioned in the project discussion",
+            "trailingTag": {
+              "componentType": "tagComponent",
+              "text": "Info",
+              "backgroundColor": "ACCENT"
+            }
+          },
+          {
+            "avatar": {
+              "componentType": "textAvatar",
+              "initials": "LM",
+              "backgroundColor": "NEGATIVE"
+            },
+            "title": "Lisa Martinez",
+            "text": "@You were mentioned in an urgent report",
+            "trailingTag": {
+              "componentType": "tagComponent",
+              "text": "Alert",
+              "backgroundColor": "NEGATIVE"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

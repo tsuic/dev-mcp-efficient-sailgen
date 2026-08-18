@@ -26,19 +26,42 @@ locate an agent file the dispatch table already named.
 
 ## DISCOVERING APPIAN OBJECTS
 
-**Use MCP tools, not the filesystem.** Appian objects (apps, record types, fields, relationships) live on the server — not in local files. Do NOT use `find`, `grep`, `ls`, or `cat` to look for UUIDs or record type info.
+**MCP tools are in your tool list — call them like any other tool.** They are NOT bash
+commands, NOT SDK calls, NOT scripts. You invoke `mcp__appian__listApplications`,
+`mcp__appian__getRecordType`, etc. the same way you invoke `Read` or `Bash` — as direct
+tool calls. Never write shell scripts, Node.js code, or `claude mcp call ...` to use them.
 
 - App UUID → `listApplications(query: "...")`
 - Record type UUID + fields → `listRecordTypes(appUuid)` → `getRecordType(uuid)`
-- Relationships → `listRecordTypeRelationships(uuid)`
-- Existing interfaces → `listInterfaces(appUuid, query: "...")`
+- Relationships are included in `getRecordType` response — no separate call needed
+- Lookup table fields → `getRecordType(uuid)` on the related record type
+- Lookup table values (status IDs, category names) → `listRecordData(uuid)` on small enum tables only
 
-Call these MCP tools directly. One `getRecordType` call gives you all field UUIDs, relationship UUIDs, and type references needed for the definition JSON.
+**Minimum discovery for a live dashboard:**
+1. `listApplications(query)` — get app UUID
+2. `listRecordTypes(appUuid)` — find the primary record type
+3. `getRecordType(uuid)` — primary record type (fields + relationships)
+4. `getRecordType(uuid)` × N — each related record type whose fields you reference
+5. `listRecordData(uuid)` × M — small lookup tables to get enum values for filters
 
-**Related record fields:** If the request displays a field from a related record type (e.g.,
-a lookup table's `label` for status/priority/category), call `getRecordType` on that related
-record type too. A relationship UUID is not the same as the target field UUID — you need both.
-When in doubt, call `getRecordType` on every record type mentioned in the request.
+**Resolving "display name" / "label" fields:** When the user asks for a field's
+display name (e.g. "status display name", "priority label", "category name"), that
+means the RELATIONSHIP LOOKUP field — not the raw FK integer. For every foreign-key
+field (e.g. `statusId`) that has a corresponding many-to-one relationship (e.g.
+`status` → Status record type), resolve the target record type's display field
+(typically `label` or `name`) and pass the full relationship-qualified field path
+as a Concrete Identifier:
+- Call `getRecordType(uuid)` on the related record type to find its `label`/`name` field UUID
+- The Concrete Identifier for the definition agent is: `{relationship, field, localName}` where:
+  - `relationship` = the many-to-one relationship reference on the base record type
+  - `field` = `{relationship}.fields.{targetFieldUuid}{targetFieldName}`
+  - `localName` = a descriptive camelCase name like `statusLabel`, `priorityLabel`
+
+Never pass a raw FK integer field (like `statusId`) when the user asks for the
+display name — that shows a meaningless number instead of human-readable text.
+
+**Do NOT call:** `listInterfaces`, `listFolderContents`, `listRecordTypeRelationships`
+(redundant — the prompt says create/update, appUuid handles folders, getRecordType has relationships).
 
 ## WRITING OUTPUT FILES
 
@@ -122,6 +145,9 @@ TASK TYPE: wizard | form | grid | dashboard | record-view | pane | component | d
 UUID: {uuid}
 PIPELINE ROOT: skills/appian/sail-generation
 
+FIRST: Read skills/appian/sail-generation/agents/{agent-file}.md — it contains the JSON schema
+for the definition. Do NOT read define.js, do NOT read old definition files, do NOT ls/find.
+
 USER REQUEST: "{verbatim}"
 INFERRED ENTITIES: {EntityName} (field1, field2, ...)
 CONCRETE IDENTIFIERS: (paste record type UUIDs, field UUIDs, relationship UUIDs from MCP discovery)
@@ -155,20 +181,36 @@ All commands run from: skills/appian/sail-generation/
 Concrete Identifiers (record type UUIDs, field UUIDs, relationship UUIDs). If the brief
 only has entity names and inferred fields without UUIDs, use the standard mockup agent.
 
+**Dynamic page titles:** When the user says the page title should be a field from the
+record (e.g. "title should be the ticket title"), pass the field reference in the brief
+and instruct the definition agent to set `titleFieldRef` to that field reference in
+the definition JSON. This makes the rendered header display the queried field value
+instead of a static string.
+
+**Display names from FK fields:** When the user references a lookup field's display value
+(e.g. "status", "priority", "category" without qualifying "ID"), always resolve through
+the many-to-one relationship to the lookup table's display field. The brief should
+include the full `{relationship, field, localName}` triple for each lookup, never the
+raw FK integer field. The definition agent cannot make this decision on its own — it
+only uses the Concrete Identifiers you supply.
+
 ---
 
 ## STEP 4 — ICON RESOLUTION
 
-**Short-circuit:** If the specialist reports 0 placeholders or icon resolution complete, skip.
+Definition agents write descriptive keywords for icons (e.g. "revenue", "open-tickets",
+"deployment"). `resolve-icons.js --auto` maps invalid ones to valid aliases, leaving
+already-valid icons untouched.
 
 ```bash
 node generator/resolve-icons.js {uuid} --auto
 ```
 (Run from `skills/appian/sail-generation/`)
 
-- `"placeholders": 0` → done
-- `"resolved": N` with no errors → done
-- Errors → manual override: `node generator/resolve-icons.js {uuid} concept1:alias1 ...`
+- `"placeholders": 0` → all icons were already valid, go to Step 5
+- `"resolved": N` with no errors → done, go to Step 5
+
+**After `--auto` succeeds, do NOT:** read the .sail file, grep for icons, edit icons manually, or re-run validate.sh.
 
 ---
 
@@ -177,21 +219,32 @@ node generator/resolve-icons.js {uuid} --auto
 **Always deploy after generation — do NOT stop to ask the user for UUIDs or confirmation.**
 **Deploy uses MCP tool calls (not shell commands).** Never `bash` an MCP tool name.
 
-1. **Find the app UUID yourself** — call `listApplications` (with `query` if the user named the app) and pick the matching one.
-2. **Determine create vs update** — call `listInterfaces(appUuid)` with a query matching the interface name. If it exists, update; otherwise, create.
-3. **Derive the interface name** from the user's request using the app prefix + descriptive name (e.g., `ITSM_TeamDashboard`). Load `references/interfaces.md` if unsure about naming.
+1. **App UUID** — you already have this from discovery (Step 0). Do NOT call `listApplications` again.
+2. **Create vs update** — the prompt says which one. If it says "create", create. If it says "update" or names an existing interface to modify, update. Do NOT call `listInterfaces` to check.
+3. **Interface name** — use the name from the prompt. If none given, derive from the app prefix + descriptive name (e.g., `ITSM_TeamDashboard`).
 4. **Deploy:**
 
+For app-associated interfaces:
 ```
-createInterface(
-  name: "PREFIX_InterfaceName",
-  appUuid: "...",
-  expressionFilePath: "/path/to/{uuid}/{slug}.sail",
-  inputs: [...]
-)
+createInterface(name: "...", appUuid: "...", expressionFilePath: "...")
 ```
 
-**Do NOT ask the user** for app UUID, interface name, or create-vs-update — resolve these yourself using list/get tools.
+For record-view interfaces (contain `ri!record`): also pass the input declaration:
+```
+createInterface(name: "...", appUuid: "...", expressionFilePath: "...",
+  inputs: [{ name: "record", type: "<typeReference from getRecordType>" }])
+```
+The `type` value is the record type's `typeReference` string from the `getRecordType`
+response (e.g. `"recordType!{uuid}ITSM Ticket"`). Without this input declaration,
+Appian rejects the expression with "Unresolved reference(s): ri!record".
+
+For standalone interfaces (name starts with `TEST_` or prompt says "no app" / "standalone"):
+```
+createInterface(name: "...", parentFolderUuid: "SYSTEM_RULES_ROOT", expressionFilePath: "...")
+```
+Do NOT pass `appUuid` for standalone interfaces — it causes folder errors.
+
+**Do NOT ask the user** for app UUID, interface name, or create-vs-update.
 
 ---
 
@@ -207,16 +260,20 @@ That's 5–6 tool calls total in the parent.
 
 ## ANTI-PATTERNS
 
+- **Invoking MCP tools via bash, Node.js scripts, or `claude mcp call`** — MCP tools are in your tool list. Call `mcp__appian__createInterface(...)` as a tool invocation, same as you call `Read` or `Bash`. Never write a script to call them.
 - **Writing a summary or description of the generated interface before deploying** — this wastes a turn and often triggers end-of-turn behavior. The ONLY text you produce is the post-deploy confirmation. If you catch yourself writing "Here's what was created" or "The interface contains" before calling `createInterface`, stop and call `createInterface` instead.
+- **Reading the .sail output file after scaffold + validate pass** — the file is correct; reading it into context adds latency and tokens. Only read it if Pass 3 edits are needed.
+- **Reading old definition.json files from `definitions/` or `output/`** — those are from other runs. Your specialist writes a fresh definition via `define.js --write`.
+- **Reading `define.js` or `scaffold.js` source code** — you don't need to understand the implementation. Just run the commands as documented.
 - **Asking the user for app UUID, interface name, or create/update choice** — look these up yourself via `listApplications` and `listInterfaces`
 - **Searching the filesystem for Appian object info** (`find`, `grep`, `ls` for UUIDs, record types, field names) — use MCP tools instead; Appian objects are on the server, not in local files
 - **Loading SKILL.md reference files** (appian-workflow-patterns.md, query-record-type-patterns.md, etc.) — the pipeline handles everything; don't load references for interface tasks
 - **Calling `getInterface` on the deploy target for any reason before deploying** — whether to find a pattern to mirror, confirm it's currently blank, or check existing content. `createInterface`/`updateInterface` fully replaces the expression regardless of prior state, and `listInterfaces` already gives you the UUID needed to deploy. There is no legitimate reason to read the target interface's body first — if you catch yourself justifying it, that's the anti-pattern.
 - **Reading both the mockup and live variant** of a specialist file "to compare" — decide from Concrete Identifiers alone
 - **Listing the `agents/` directory (`ls`) to confirm a specialist file exists** — the dispatch table in Step 3 is authoritative; use the filename it gives you directly
+- **Listing or exploring `guidelines/`, `definitions/`, or other subdirectories** — the specialist agent knows its own paths; you don't need to map the directory tree
 - **Fetching MCP tool schemas via `ToolSearch` one at a time as each is needed** — before starting discovery, batch a single `ToolSearch` call covering the full expected toolset for the task: discovery tools, any conditional lookups (e.g. `listRecordData` to verify lookup-table values), and the deploy tool (`createInterface`/`updateInterface`)
 - **Copying .sail files** to a different path before deploy (unnecessary — pass the original)
-- **Reading .sail output into context** to "verify" after validation already passed (unless Pass 3 editing is needed)
 - **Guessing the pipeline cwd** — always use `{workspace}/skills/appian/sail-generation/`
 - **Hand-writing `a!recordLink(record: ...)`** — the correct params are `recordType` and `identifier`. See `guidelines/logic-guidelines/record-link-patterns.md`
 - **Using `sed` for multi-line replacements** — macOS `sed` doesn't handle `\n` in patterns. Use proper file-edit tools for any edit spanning more than one line.

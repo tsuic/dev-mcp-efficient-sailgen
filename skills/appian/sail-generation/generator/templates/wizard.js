@@ -583,7 +583,6 @@ function renderFromDefinition(def) {
 
   // Step indicator style: CHEVRON_HORIZONTAL for ≤4 steps, DOT_VERTICAL for more
   const style = steps.length <= 4 ? "CHEVRON_HORIZONTAL" : "DOT_VERTICAL";
-  const icon = headerIcon || "circle";
   const subtitle = headerSubtitle || `Complete all steps to submit your ${entityName.toLowerCase()}.`;
 
   // Render each step
@@ -636,9 +635,7 @@ ${varDecls}
       secondaryText: "${subtitle}",
       backgroundColor: "${theme.headerBg}",
       titleColor: "${theme.titleColor}",
-      secondaryTextColor: "${theme.subtitleColor}",
-      stampIcon: "${icon}",
-      stampColor: "${theme.stampContent}"
+      secondaryTextColor: "${theme.subtitleColor}"${headerIcon ? `,\n      stampIcon: "${headerIcon}",\n      stampColor: "${theme.stampContent}"` : ""}
     ),
     isTitleBarFixed: false(),
     style: "${style}",

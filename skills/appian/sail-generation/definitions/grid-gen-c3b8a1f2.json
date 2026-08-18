@@ -1,0 +1,105 @@
+{
+  "type": "grid",
+  "title": "IT Asset Inventory",
+  "entityName": "Asset",
+  "headerKind": "BILLBOARD",
+  "headerImage": "https://images.unsplash.com/photo-1518770660439-4636190af475",
+  "headerSubtitle": "Track and manage all company hardware assets",
+  "columns": [
+    {
+      "name": "assetTag",
+      "label": "Asset Tag",
+      "type": "primary",
+      "width": "NARROW_PLUS"
+    },
+    {
+      "name": "device",
+      "label": "Device",
+      "type": "text",
+      "width": "MEDIUM"
+    },
+    {
+      "name": "assignedTo",
+      "label": "Assigned To",
+      "type": "text",
+      "width": "MEDIUM"
+    },
+    {
+      "name": "location",
+      "label": "Location",
+      "type": "text",
+      "width": "NARROW_PLUS"
+    },
+    {
+      "name": "condition",
+      "label": "Condition",
+      "type": "tag",
+      "width": "NARROW_PLUS",
+      "tagColors": {
+        "Excellent": "POSITIVE",
+        "Good": "ACCENT",
+        "Fair": "SECONDARY",
+        "Poor": "NEGATIVE",
+        "Retired": "NEGATIVE"
+      }
+    },
+    {
+      "name": "actions",
+      "label": "Actions",
+      "type": "buttonArray",
+      "width": "NARROW_PLUS"
+    }
+  ],
+  "rows": [
+    {
+      "assetTag": "ASSET-001",
+      "device": "MacBook Pro",
+      "assignedTo": "Sarah Johnson",
+      "location": "San Francisco, CA",
+      "condition": "Excellent"
+    },
+    {
+      "assetTag": "ASSET-002",
+      "device": "Dell Monitor 27in",
+      "assignedTo": "John Chen",
+      "location": "New York, NY",
+      "condition": "Good"
+    },
+    {
+      "assetTag": "ASSET-003",
+      "device": "iPhone 14 Pro",
+      "assignedTo": "Maria Garcia",
+      "location": "Chicago, IL",
+      "condition": "Excellent"
+    },
+    {
+      "assetTag": "ASSET-004",
+      "device": "HP Laptop",
+      "assignedTo": "Robert Wilson",
+      "location": "Boston, MA",
+      "condition": "Fair"
+    },
+    {
+      "assetTag": "ASSET-005",
+      "device": "LG Ultrawide Monitor",
+      "assignedTo": "Emily Davis",
+      "location": "Seattle, WA",
+      "condition": "Good"
+    },
+    {
+      "assetTag": "ASSET-006",
+      "device": "iPad Air",
+      "assignedTo": "Unassigned",
+      "location": "Denver, CO",
+      "condition": "Poor"
+    }
+  ],
+  "filters": [
+    {
+      "label": "Condition",
+      "column": "condition",
+      "choices": ["Excellent", "Good", "Fair", "Poor", "Retired"]
+    }
+  ],
+  "primaryActionLabel": "New Asset"
+}

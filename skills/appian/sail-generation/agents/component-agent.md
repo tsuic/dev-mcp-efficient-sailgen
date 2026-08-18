@@ -100,7 +100,7 @@ Read ONLY the schema and instruction file for the requested component:
 | Button group | `schemas/button-components-schema.json` | `components/button-instructions.md` |
 | Tab layout | `schemas/layouts-schema.json` | `layouts/tab-layout-instructions.md` |
 
-Always use `"circle"` as placeholder for any icon values — the orchestrator resolves icons in a final pass. Do NOT read `rich-text-icon-aliases.md`.
+For icon values, use `a descriptive keyword` (e.g. "user-count", "revenue"). Do NOT read `rich-text-icon-aliases.md` — the resolve-icons pass maps concepts to valid aliases.
 
 ### Output Format
 
@@ -190,7 +190,6 @@ If in doubt, render less.
 - [ ] No `a!headerContentLayout` or page-level header/title/breadcrumb chrome
 - [ ] No regex; no `ri!`/`recordtype!`
 - [ ] Only richTextItems/Icons inside richTextDisplayField
-- [ ] All icons use `"circle"` placeholder (self-check from memory of what you wrote — no need to search/grep the file; icon resolution is a separate later pass over the whole file, not this agent's job)
 - [ ] No `showSearchBox`/`userFilters`/`recordActions` with local data
 - [ ] Grid columns use only `fv!row`
 - [ ] `save!value` only inside `a!save()`

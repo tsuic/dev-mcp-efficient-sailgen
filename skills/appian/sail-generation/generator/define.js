@@ -361,7 +361,7 @@
  *         "title" (required) — bold header line, e.g. a commenter's name.
  *         "text" (required) — body line, e.g. the comment content.
  *         "avatarText" (required if avatarType is "text") — 1-3 char initials.
- *         "avatarIcon" (required if avatarType is "icon") — use "circle" placeholder.
+ *         "avatarIcon" (required if avatarType is "icon") — write best-guess alias (e.g. "user-circle").
  *         "avatarColor" (optional) — hex color; cycles through a default palette if omitted.
  *         "trailing" (required if trailingType is "text") — e.g. "2 hours ago".
  *         "tag" / "tagColor" (required if trailingType is "tag") — tagColor accepts
@@ -383,7 +383,7 @@
  *       "link": { "text" } renders a standalone call-to-action link (e.g. "Book now").
  *       Put several of these in a "columns" or "cardGroup" container for a card row/grid.
  *     - "stamp": { "icon"?, "text"?, "color"? } — a single stamp element (colored icon
- *       circle). At least one of "icon" or "text" is required. "icon" defaults to "circle"
+ *       circle). At least one of "icon" or "text" is required. "icon" defaults to "circle" if omitted
  *       (final icon-resolution pass replaces it). "color" is a hex color; defaults to
  *       "#2C3E50". Use inside a "sideBySide" with width "MINIMIZE" for the common
  *       icon-beside-title pattern.
@@ -548,11 +548,10 @@ function loadIconAliases() {
 }
 
 function validateIcon(icon, context, errors) {
-  if (icon === undefined || icon === null) return;
-  const aliases = loadIconAliases();
-  if (aliases.size > 0 && !aliases.has(icon)) {
-    errors.push(`${context}: "${icon}" is not a verified icon alias (check rich-text-icon-aliases.md)`);
-  }
+  // Icons are validated/resolved by resolve-icons.js after scaffolding.
+  // define.js accepts any string — the agent writes its intent (e.g. "revenue",
+  // "open-tickets", "deployment") and resolve-icons maps it to a valid alias.
+  return;
 }
 
 // ---------------------------------------------------------------------------
@@ -1414,6 +1413,18 @@ function validateRecordViewDefinition(def, errors) {
     validateDataBindingBlock(def.dataBinding, errors);
   }
 
+  // titleFieldRef: optional field that makes the page header title dynamic
+  // (resolved from a queried field instead of the static recordName).
+  // Must resolve to something in dataBinding.fields or relatedRecordData.
+  if (def.titleFieldRef !== undefined) {
+    if (!hasDataBinding) {
+      errors.push('"titleFieldRef" requires "dataBinding" to be present — there is nothing queried to bind the title to');
+    } else if (typeof def.titleFieldRef !== "string" || !def.titleFieldRef) {
+      errors.push('"titleFieldRef" must be a non-empty string');
+    }
+    // Cross-check against valid refs happens below after collectDataBindingFieldRefs
+  }
+
   // Every string a keyAttributes/sections field's "fieldRef" is allowed to
   // resolve to: a relationship-qualified/related-collection localName (e.g.
   // "statusLabel", "comments"), or a plain field-reference string already
@@ -1422,6 +1433,11 @@ function validateRecordViewDefinition(def, errors) {
   // by the definition agent — instead of forcing every live-data record view
   // to hand off to Pass 3 just to show its own queried fields.
   const validFieldRefs = hasDataBinding ? collectDataBindingFieldRefs(def.dataBinding) : null;
+
+  // Cross-check titleFieldRef against valid refs
+  if (def.titleFieldRef && hasDataBinding && validFieldRefs && !validFieldRefs.has(def.titleFieldRef)) {
+    errors.push(`"titleFieldRef": "${def.titleFieldRef}" does not match any dataBinding.fields[].localName, dataBinding.relatedRecordData[].localName, or plain field reference already listed in dataBinding.fields`);
+  }
 
   // "name" only drives a real local!{name} var decl for entries WITHOUT a
   // fieldRef (see renderFromDefinition's allFields.filter((f) => !f.fieldRef)
@@ -1596,7 +1612,7 @@ const VALID_TYPES = [
 ];
 
 // Types that must always be single-field rows (can't share a row)
-const SOLO_TYPES = new Set(["paragraph", "richtext", "fileupload"]);
+const SOLO_TYPES = new Set(["richtext"]);
 
 const TOP_LEVEL_TYPES = ["form", "wizard", "grid", "dashboard", "record-view", "component", "pane", "layout"];
 

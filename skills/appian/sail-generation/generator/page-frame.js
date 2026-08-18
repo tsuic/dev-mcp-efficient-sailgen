@@ -43,12 +43,13 @@ function esc(s) {
 // "{ ... }"), or null for NONE.
 // ---------------------------------------------------------------------------
 
-function titleRichText(title, indent, theme) {
+function titleRichText(title, indent, theme, titleExpr) {
   const i = indent;
+  const textValue = titleExpr || `"${esc(title)}"`;
   return `${i}a!richTextDisplayField(
 ${i}  labelPosition: "COLLAPSED",
 ${i}  value: a!richTextItem(
-${i}    text: "${esc(title)}",
+${i}    text: ${textValue},
 ${i}    size: "LARGE",
 ${i}    style: "STRONG",
 ${i}    color: "${theme.titleColor}"
@@ -68,14 +69,14 @@ ${i}  )
 ${i})`;
 }
 
-function renderPlainCardHeader({ title, headerSubtitle, headerRight, headerBackgroundColor, theme }) {
+function renderPlainCardHeader({ title, headerSubtitle, headerRight, headerBackgroundColor, theme, titleExpr }) {
   // Left item: title alone, or title + subtitle stacked in an array.
   const leftItem = headerSubtitle
     ? `                item: {
-${titleRichText(title, "                  ", theme)},
+${titleRichText(title, "                  ", theme, titleExpr)},
 ${subtitleRichText(headerSubtitle, "                  ", theme)}
                 }`
-    : `                item: ${titleRichText(title, "                ", theme).trimStart()}`;
+    : `                item: ${titleRichText(title, "                ", theme, titleExpr).trimStart()}`;
 
   const rightItemBlock = headerRight
     ? `,
@@ -107,7 +108,8 @@ ${leftItem},
     }`;
 }
 
-function renderHeroHeader({ title, headerSubtitle, headerBackgroundColor, theme }) {
+function renderHeroHeader({ title, headerSubtitle, headerBackgroundColor, theme, titleExpr }) {
+  const textValue = titleExpr || `"${esc(title)}"`;
   const subtitleLine = headerSubtitle
     ? `,
           a!richTextDisplayField(
@@ -128,7 +130,7 @@ function renderHeroHeader({ title, headerSubtitle, headerBackgroundColor, theme 
             labelPosition: "COLLAPSED",
             align: "CENTER",
             value: a!richTextItem(
-              text: "${esc(title)}",
+              text: ${textValue},
               size: "EXTRA_LARGE",
               style: "STRONG",
               color: "${theme.titleColor}"
@@ -143,7 +145,8 @@ function renderHeroHeader({ title, headerSubtitle, headerBackgroundColor, theme 
     }`;
 }
 
-function renderBillboardHeader({ title, headerSubtitle, headerBackgroundColor, headerImage, theme }) {
+function renderBillboardHeader({ title, headerSubtitle, headerBackgroundColor, headerImage, theme, titleExpr }) {
+  const textValue = titleExpr || `"${esc(title)}"`;
   const subtitleLine = headerSubtitle
     ? `,
             a!richTextDisplayField(
@@ -170,7 +173,7 @@ function renderBillboardHeader({ title, headerSubtitle, headerBackgroundColor, h
             a!richTextDisplayField(
               labelPosition: "COLLAPSED",
               value: a!richTextItem(
-                text: "${esc(title)}",
+                text: ${textValue},
                 size: "LARGE",
                 style: "STRONG",
                 color: "${theme.titleColor}"
@@ -199,6 +202,7 @@ function renderHeader(kind, opts) {
 function renderPageFrame(opts) {
   const {
     title,
+    titleExpr,
     body,
     headerKind = "PLAIN_CARD",
     headerSubtitle,
@@ -212,7 +216,7 @@ function renderPageFrame(opts) {
   } = opts;
 
   const headerSail = renderHeader(headerKind, {
-    title, headerSubtitle, headerRight, headerBackgroundColor, headerImage, theme,
+    title, titleExpr, headerSubtitle, headerRight, headerBackgroundColor, headerImage, theme,
   });
 
   const headerParam = headerSail ? `    header: ${headerSail},\n` : "";

@@ -176,7 +176,7 @@ Request: "A team directory page with a HERO header and 4 image cards"
 - If the decomposable structure itself cannot go through `define.js`, fall back to hand-writing the whole request and report why.
 
 ## Icons and Images
-- Use `"circle"` for ALL icon values — the orchestrator resolves them.
+- For icon values, use a descriptive keyword (e.g. "settings", "user-count"). The resolve-icons pass maps concepts to valid aliases.
 - Use real placeholder URLs (e.g. Unsplash) for `imageCard.image` and `headerImage`.
 
 ## Output

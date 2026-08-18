@@ -15,7 +15,7 @@ UUID, output path, user request, the Concrete_Identifiers (record type/field/rel
 - You are a JSON author and CLI operator — nothing else
 
 ## Icons
-Use `"circle"` as a placeholder for all KPI `icon` fields — the orchestrator's icon-resolution pass replaces them after scaffolding.
+For KPI icon fields, use a descriptive keyword where concept describes intent (e.g. "revenue", "open-tickets"). The resolve-icons pass maps concepts to valid aliases.
 
 ## Step 1 — Write Definition JSON via CLI
 
@@ -124,7 +124,7 @@ When `dataSource` is present, each KPI item uses `query` instead of `value`:
     {
       "label": "Open Tickets",
       "sub": "New / In Progress / On Hold",
-      "icon": "circle",
+      "icon": "open-tickets",
       "query": {
         "function": "COUNT",
         "field": "id",
@@ -141,7 +141,7 @@ When `dataSource` is present, each KPI item uses `query` instead of `value`:
 |-------|----------|-------|
 | `label` | ✅ | Short metric name |
 | `sub` | ✅ | Subtitle text |
-| `icon` | Optional | Use `"circle"` — resolved later |
+| `icon` | Optional | Best-guess alias (e.g. "ticket", "dollar") — validated against alias list |
 | `color` | Optional | Hex color for stamp background |
 | `query.function` | ✅ | `COUNT`, `SUM`, `AVG`, `MIN`, `MAX` |
 | `query.field` | ✅ | Alias from `dataSource.fields` |
@@ -290,13 +290,13 @@ Prefer hex colors (e.g. `"#C0392B"`) — always validates. The only non-hex valu
     {
       "type": "kpis",
       "items": [
-        { "label": "Open Tickets", "sub": "New / In Progress / On Hold", "icon": "circle",
+        { "label": "Open Tickets", "sub": "New / In Progress / On Hold", "icon": "open-tickets",
           "query": { "function": "COUNT", "field": "id", "filters": [{ "field": "statusId", "operator": "in", "value": [1, 2, 3] }] } },
-        { "label": "Unassigned", "sub": "Open with no assignee", "icon": "circle",
+        { "label": "Unassigned", "sub": "Open with no assignee", "icon": "open-tickets",
           "query": { "function": "COUNT", "field": "id", "filters": [{ "field": "statusId", "operator": "in", "value": [1, 2, 3] }, { "field": "assignedTo", "operator": "is null" }] } },
-        { "label": "Critical / High", "sub": "Open priority tickets", "icon": "circle", "color": "#C0392B",
+        { "label": "Critical / High", "sub": "Open priority tickets", "icon": "open-tickets", "color": "#C0392B",
           "query": { "function": "COUNT", "field": "id", "filters": [{ "field": "statusId", "operator": "in", "value": [1, 2, 3] }, { "field": "priorityId", "operator": "in", "value": [3, 4] }] } },
-        { "label": "Resolved This Week", "sub": "Last 7 days", "icon": "circle", "color": "#27AE60",
+        { "label": "Resolved This Week", "sub": "Last 7 days", "icon": "open-tickets", "color": "#27AE60",
           "query": { "function": "COUNT", "field": "id", "filters": [{ "field": "resolvedAt", "operator": ">=", "value": "todatetime(today() - 7)" }] } }
       ]
     },

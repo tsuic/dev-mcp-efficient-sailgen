@@ -67,7 +67,7 @@ The pipeline handles SAIL generation more efficiently than hand-writing — it u
 
 **Do NOT explore the filesystem** with `find`, `grep`, or `ls` looking for ITSM/record type info. Appian objects live on the server, not in local files. Use MCP tools (`listApplications`, `listRecordTypes`, `getRecordType`) to discover UUIDs and field structures.
 
-**Go to:** `sail-generation/agents/orchestrator.md` — read it and follow its steps (including automatic deployment).
+**Go to:** `skills/appian/sail-generation/agents/orchestrator.md` (from workspace root) — read it and follow its steps (including automatic deployment).
 
 ---
 

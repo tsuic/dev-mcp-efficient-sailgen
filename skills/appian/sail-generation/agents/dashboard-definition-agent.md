@@ -14,7 +14,7 @@ UUID, output path, user request, inferred entities/metrics.
 - You are a JSON author and CLI operator — nothing else
 
 ## Icons (KPIs + headerIcon)
-Omit `headerIcon` — the scaffold defaults to `"circle"`. For KPI `icon` fields, use `"circle"` as a placeholder — the orchestrator's final icon-resolution pass will replace them with semantically appropriate icons after all content is complete. This avoids expensive alias lookups during authoring.
+For KPI `icon` fields, use `a descriptive keyword` where concept is a short keyword describing the icon's intent (e.g. "revenue", "open-tickets", "deployment"). The orchestrator's resolve-icons pass maps concepts to valid aliases. Do NOT guess at alias names.
 
 ## Step 1 — Write Definition JSON via CLI
 
@@ -92,10 +92,10 @@ Defaults (used when no theme is provided): headerBg `#2C3E50`, pageBg `#F5F6F8`,
     {
       "type": "kpis",
       "items": [
-        { "label": "Open Tickets", "value": "428", "sub": "+12% vs last week", "icon": "circle", "color": "#2C3E50" },
-        { "label": "Avg Resolution", "value": "2.4h", "sub": "down from 3.1h", "icon": "circle", "color": "#34495E" },
-        { "label": "SLA Compliance", "value": "94%", "sub": "target: 95%", "icon": "circle", "color": "#7F8C8D" },
-        { "label": "Active Agents", "value": "18", "sub": "3 on break", "icon": "circle", "color": "#95A5A6" }
+        { "label": "Open Tickets", "value": "428", "sub": "+12% vs last week", "icon": "open-tickets", "color": "#2C3E50" },
+        { "label": "Avg Resolution", "value": "2.4h", "sub": "down from 3.1h", "icon": "time", "color": "#34495E" },
+        { "label": "SLA Compliance", "value": "94%", "sub": "target: 95%", "icon": "compliance", "color": "#7F8C8D" },
+        { "label": "Active Agents", "value": "18", "sub": "3 on break", "icon": "team", "color": "#95A5A6" }
       ]
     },
     {

@@ -1,0 +1,226 @@
+{
+  "type": "dashboard",
+  "title": "Mendocino Coastal Weather",
+  "headerSubtitle": "Live conditions and 7-day forecast for Mendocino, CA",
+  "headerKind": "PLAIN_CARD",
+  "theme": {
+    "headerBg": "#1A4D7A",
+    "pageBg": "#F0F5F9",
+    "cardBg": "#FFFFFF",
+    "titleColor": "#FFFFFF",
+    "subtitleColor": "#A8C5D8",
+    "kpiColors": ["#1A4D7A", "#2E7DAE", "#4BABDB", "#2E7DAE"],
+    "kpiLabelColor": "#5A6B7A",
+    "kpiValueColor": "#0F2D4A",
+    "kpiSubColor": "#2E7DAE",
+    "chartAccent": "#2E7DAE",
+    "piePalette": ["#1A4D7A", "#2E7DAE", "#4BABDB", "#88C9E3"],
+    "stampBg": "#1A4D7A",
+    "stampContent": "#FFFFFF"
+  },
+  "sections": [
+    {
+      "type": "kpis",
+      "items": [
+        {
+          "label": "Current Temp",
+          "value": "62°F",
+          "sub": "Clear skies",
+          "icon": "sun",
+          "color": "#2E7DAE"
+        },
+        {
+          "label": "Humidity",
+          "value": "68%",
+          "sub": "Moderate moisture",
+          "icon": "water",
+          "color": "#4BABDB"
+        },
+        {
+          "label": "Wind Speed",
+          "value": "12 mph",
+          "sub": "From NW at 15 mph",
+          "icon": "wind",
+          "color": "#1A4D7A"
+        },
+        {
+          "label": "UV Index",
+          "value": "6",
+          "sub": "Moderate (use SPF 30+)",
+          "icon": "info-circle",
+          "color": "#2E7DAE"
+        }
+      ]
+    },
+    {
+      "type": "chart",
+      "label": "7-Day Forecast",
+      "chartType": "line",
+      "categories": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      "series": [
+        {
+          "label": "High",
+          "data": [68, 70, 69, 65, 62, 64, 66],
+          "color": "#2E7DAE"
+        },
+        {
+          "label": "Low",
+          "data": [52, 54, 51, 48, 47, 49, 51],
+          "color": "#4BABDB"
+        }
+      ]
+    },
+    {
+      "type": "chart",
+      "label": "Hourly Precipitation Chance",
+      "chartType": "bar",
+      "categories": ["12am", "1am", "2am", "3am", "4am", "5am", "6am", "7am", "8am", "9am", "10am", "11am"],
+      "series": [
+        {
+          "label": "% Chance",
+          "data": [5, 3, 2, 1, 0, 2, 5, 8, 10, 15, 12, 8],
+          "color": "#1A4D7A"
+        }
+      ]
+    },
+    {
+      "type": "columns",
+      "items": [
+        {
+          "type": "chart",
+          "label": "Wind Direction",
+          "chartType": "pie",
+          "categories": ["N", "NE", "E", "SE", "S", "SW", "W", "NW"],
+          "series": [
+            {
+              "label": "Frequency",
+              "data": [8, 12, 5, 3, 2, 4, 15, 51],
+              "color": "#1A4D7A"
+            }
+          ]
+        },
+        {
+          "type": "chart",
+          "label": "Cloud Coverage",
+          "chartType": "pie",
+          "categories": ["Clear", "Partly Cloudy", "Mostly Cloudy", "Overcast"],
+          "series": [
+            {
+              "label": "Coverage %",
+              "data": [45, 35, 15, 5],
+              "color": "#1A4D7A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "grid",
+      "label": "Hourly Conditions",
+      "columns": [
+        {
+          "name": "time",
+          "label": "Time",
+          "type": "primary",
+          "width": "NARROW"
+        },
+        {
+          "name": "temp",
+          "label": "Temperature",
+          "type": "text",
+          "width": "NARROW_PLUS"
+        },
+        {
+          "name": "condition",
+          "label": "Condition",
+          "type": "text",
+          "width": "MEDIUM"
+        },
+        {
+          "name": "humidity",
+          "label": "Humidity",
+          "type": "text",
+          "width": "NARROW_PLUS"
+        },
+        {
+          "name": "windSpeed",
+          "label": "Wind",
+          "type": "text",
+          "width": "NARROW_PLUS"
+        },
+        {
+          "name": "feelsLike",
+          "label": "Feels Like",
+          "type": "text",
+          "width": "NARROW_PLUS"
+        }
+      ],
+      "rows": [
+        {
+          "time": "12:00 AM",
+          "temp": "54°F",
+          "condition": "Clear",
+          "humidity": "72%",
+          "windSpeed": "11 mph",
+          "feelsLike": "51°F"
+        },
+        {
+          "time": "1:00 AM",
+          "temp": "53°F",
+          "condition": "Clear",
+          "humidity": "74%",
+          "windSpeed": "10 mph",
+          "feelsLike": "50°F"
+        },
+        {
+          "time": "2:00 AM",
+          "temp": "52°F",
+          "condition": "Clear",
+          "humidity": "75%",
+          "windSpeed": "9 mph",
+          "feelsLike": "49°F"
+        },
+        {
+          "time": "3:00 AM",
+          "temp": "51°F",
+          "condition": "Partly Cloudy",
+          "humidity": "76%",
+          "windSpeed": "8 mph",
+          "feelsLike": "48°F"
+        },
+        {
+          "time": "12:00 PM",
+          "temp": "62°F",
+          "condition": "Mostly Clear",
+          "humidity": "68%",
+          "windSpeed": "12 mph",
+          "feelsLike": "60°F"
+        },
+        {
+          "time": "1:00 PM",
+          "temp": "63°F",
+          "condition": "Clear",
+          "humidity": "65%",
+          "windSpeed": "13 mph",
+          "feelsLike": "61°F"
+        },
+        {
+          "time": "2:00 PM",
+          "temp": "64°F",
+          "condition": "Clear",
+          "humidity": "62%",
+          "windSpeed": "14 mph",
+          "feelsLike": "62°F"
+        },
+        {
+          "time": "3:00 PM",
+          "temp": "65°F",
+          "condition": "Mostly Clear",
+          "humidity": "60%",
+          "windSpeed": "15 mph",
+          "feelsLike": "62°F"
+        }
+      ]
+    }
+  ]
+}

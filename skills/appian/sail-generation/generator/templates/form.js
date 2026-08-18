@@ -27,7 +27,6 @@ const { resolveTheme } = require("../theme");
 function renderFromDefinition(def) {
   const { title, entityName, sections, headerIcon, headerSubtitle, submitLabel, cancelLabel } = def;
   const theme = resolveTheme(def.theme);
-
   // Collect all field variables across all sections
   const allFields = [];
   const seenVars = new Set();
@@ -58,7 +57,6 @@ function renderFromDefinition(def) {
     }),
   ].join("\n");
 
-  const icon = headerIcon || "circle";
   const subtitle = headerSubtitle || `Complete this form to submit your ${entityName.toLowerCase()}.`;
 
   // Multiple sections → WIDE with one card per section
@@ -106,9 +104,7 @@ ${varDecls}
       secondaryText: "${subtitle}",
       backgroundColor: "${theme.headerBg}",
       titleColor: "${theme.titleColor}",
-      secondaryTextColor: "${theme.subtitleColor}",
-      stampIcon: "${icon}",
-      stampColor: "${theme.stampContent}"
+      secondaryTextColor: "${theme.subtitleColor}"${headerIcon ? `,\n      stampIcon: "${headerIcon}",\n      stampColor: "${theme.stampContent}"` : ""}
     ),
     contentsWidth: "${contentsWidth}",
     backgroundColor: "${theme.pageBg}",

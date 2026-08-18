@@ -12,10 +12,10 @@ ability to classify requests, dispatch to specialist agents, produce valid defin
 JSON, and scaffold structurally-correct SAIL — all without needing live Appian record
 types or data.
 
-### Live Data (future)
-Interfaces backed by real record types on an Appian instance. These will test the
-pipeline's ability to discover record types/fields/relationships via MCP tools and
-produce SAIL that references real UUIDs.
+### Live Data
+Interfaces backed by real record types on an Appian instance. These test the pipeline's
+ability to discover record types/fields/relationships via MCP tools and produce SAIL that
+references real UUIDs. See `run-live-data.md` for execution details.
 
 ## Running Tests
 

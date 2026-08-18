@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
-"""Dispatch mockups.yaml test prompts through `claude -p` sequentially and log the results.
+"""Dispatch live-data.yaml test prompts through `claude -p` sequentially and log the results.
 
-No external dependencies (no PyYAML) — mockups.yaml has a fixed, simple shape
-(a list of `- id: / type: / prompt: > / covers:` records), so it's parsed by hand
-below instead of pulling in a YAML library.
+Live data tests differ from mockup tests in that they target real Appian applications
+with populated record types. The agent must discover schemas via MCP tools and produce
+SAIL referencing real UUIDs.
+
+No external dependencies (no PyYAML) — live-data.yaml has a fixed, simple shape
+(a list of `- id: / type: / app: / interface: / prompt: > / covers:` records),
+so it's parsed by hand below.
 
 Usage:
-    ./run_mockups.py                        # run every test, sequentially
-    ./run_mockups.py --id grid-01-order-management --id form-02-incident-report
-    ./run_mockups.py --type dashboard
-    ./run_mockups.py --list                 # show what would run, don't run it
-    ./run_mockups.py --cleanup              # run tests, then delete TEST_* interfaces
-    ./run_mockups.py --cleanup-only         # skip tests, just delete TEST_* interfaces
+    ./run_live_data.py                        # run every test, sequentially
+    ./run_live_data.py --id live-dashboard-01-itsm-team
+    ./run_live_data.py --type dashboard
+    ./run_live_data.py --list                 # show what would run, don't run it
+    ./run_live_data.py --cleanup              # run tests, then delete TEST_LIVE_* interfaces
+    ./run_live_data.py --cleanup-only         # skip tests, just delete TEST_LIVE_* interfaces
 
 Requires the `claude` CLI on PATH, run from a shell that can reach the Appian
 dev instance configured in this repo's .mcp.json.
@@ -27,12 +31,12 @@ import time
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_TESTS_FILE = SCRIPT_DIR / "mockups.yaml"
+DEFAULT_TESTS_FILE = SCRIPT_DIR / "live-data.yaml"
 DEFAULT_REPO_ROOT = SCRIPT_DIR.parents[3]  # tests -> sail-generation -> appian -> skills -> repo root
 
 CLEANUP_PROMPT = (
-    'Call mcp__appian__listInterfaces with query "TEST_" to find every standalone '
-    "interface whose name starts with TEST_. For each interface found, call "
+    'Call mcp__appian__listInterfaces with query "TEST_LIVE_" to find every standalone '
+    "interface whose name starts with TEST_LIVE_. For each interface found, call "
     "mcp__appian__deleteInterface with its uuid to delete it. Do not call any other "
     "tools and do not create anything. When finished, report a list of the interface "
     "names and uuids you deleted."
@@ -40,7 +44,7 @@ CLEANUP_PROMPT = (
 
 
 # ---------------------------------------------------------------------------
-# mockups.yaml parsing (hand-rolled — see module docstring for why)
+# live-data.yaml parsing (hand-rolled — same approach as run_mockups.py)
 # ---------------------------------------------------------------------------
 
 def fold_block_scalar(lines):
@@ -59,7 +63,7 @@ def fold_block_scalar(lines):
     return "\n".join(paragraphs).strip()
 
 
-def parse_mockups(path: Path):
+def parse_live_data(path: Path):
     lines = path.read_text().split("\n")
     entries = []
     i, n = 0, len(lines)
@@ -70,12 +74,15 @@ def parse_mockups(path: Path):
         if not m:
             i += 1
             continue
-        entry = {"id": m.group(1), "type": None, "prompt": "", "covers": []}
+        entry = {"id": m.group(1), "type": None, "app": None, "prompt": "", "covers": []}
         i += 1
         while i < n and not entry_start.match(lines[i]):
             line = lines[i]
             if (mt := re.match(r"^\s{2}type:\s*(\S+)\s*$", line)):
                 entry["type"] = mt.group(1)
+                i += 1
+            elif (ma := re.match(r"^\s{2}app:\s*(.+?)\s*$", line)):
+                entry["app"] = ma.group(1)
                 i += 1
             elif re.match(r"^\s{2}prompt:\s*>\s*$", line):
                 i += 1
@@ -103,6 +110,8 @@ def parse_mockups(path: Path):
                 i += 1
         if not entry["prompt"]:
             raise ValueError(f"test '{entry['id']}' has no prompt — parser or file is broken")
+        if not entry["app"]:
+            raise ValueError(f"test '{entry['id']}' has no app — live data tests require an app")
         entries.append(entry)
     return entries
 
@@ -139,17 +148,16 @@ def get_env():
     return env
 
 
+
 def heuristic_grade(tool_calls, tool_errors, final_result, returncode):
     """Best-effort signal based on tool calls and final result text.
 
-    The authoritative grade is the PASS/PARTIAL/FAIL-* table in run-mockups.md,
-    which requires reading the actual log — this just tells you where to look first.
-
     Grading priority:
       1. Hard failures (nonzero exit, missing result, agent error)
-      2. Check if a deploy tool was called at all
-      3. Check if the final result text indicates successful deployment
-      4. Distinguish clean deploys from recovered ones
+      2. Check if MCP discovery tools were called (record type, fields)
+      3. Check if a deploy tool was called at all
+      4. Check if the final result text indicates successful deployment
+      5. Distinguish clean deploys from recovered ones
     """
     if returncode != 0:
         return "ERROR (nonzero exit — see log)"
@@ -157,6 +165,14 @@ def heuristic_grade(tool_calls, tool_errors, final_result, returncode):
         return "ERROR (no result message — see log)"
     if final_result.get("is_error"):
         return "ERROR (agent reported error — see log)"
+
+    # Check for MCP discovery calls (live data tests should use these)
+    discovery_calls = [c for c in tool_calls
+                       if c["name"] in ("mcp__appian__listRecordTypes",
+                                        "mcp__appian__getRecordType",
+                                        "mcp__appian__listRecordTypeRelationships",
+                                        "mcp__appian__listRecordTypeFields",
+                                        "mcp__appian__listApplications")]
 
     # Detect deploy tool calls (create or update)
     deploy_calls = [c for c in tool_calls
@@ -181,26 +197,28 @@ def heuristic_grade(tool_calls, tool_errors, final_result, returncode):
     deploy_errors = [e for e in tool_errors
                      if any(phrase in (e or "") for phrase in deploy_error_phrases)]
 
+    # Build prefix for discovery status
+    discovery_prefix = ""
+    if not discovery_calls:
+        discovery_prefix = "NO-DISCOVERY "
+
     if not deploy_calls:
         if deploy_success_indicators:
-            # Edge case: result claims success but no deploy call was logged
-            # (could be a stream parsing gap)
-            return "DEPLOYED (inferred from result text — confirm in log)"
-        return "NO-DEPLOY (no createInterface/updateInterface call seen)"
+            return f"{discovery_prefix}DEPLOYED (inferred from result text — confirm in log)"
+        return f"{discovery_prefix}NO-DEPLOY (no createInterface/updateInterface call seen)"
 
     # Deploy was attempted
     if deploy_success_indicators:
         if deploy_errors:
-            return "DEPLOYED-WITH-RECOVERY (errors encountered, then succeeded)"
+            return f"{discovery_prefix}DEPLOYED-WITH-RECOVERY (errors encountered, then succeeded)"
         if tool_errors:
-            # Non-deploy errors (file not found, etc.) but deploy succeeded
-            return "DEPLOYED (incidental errors unrelated to deploy)"
-        return "DEPLOYED (clean)"
+            return f"{discovery_prefix}DEPLOYED (incidental errors unrelated to deploy)"
+        return f"{discovery_prefix}DEPLOYED (clean)"
 
     # Deploy was called but result doesn't confirm success
     if deploy_errors:
-        return "DEPLOY-FAILED (server rejected — see log)"
-    return "DEPLOY-ATTEMPTED (outcome unclear — see log)"
+        return f"{discovery_prefix}DEPLOY-FAILED (server rejected — see log)"
+    return f"{discovery_prefix}DEPLOY-ATTEMPTED (outcome unclear — see log)"
 
 
 def extract_signals(stdout_text):
@@ -228,16 +246,21 @@ def extract_signals(stdout_text):
 
 
 def run_one(test, args, repo_root, log_dir, run_tag):
-    # Replace TEST_ names in the prompt with tagged versions to avoid collisions
-    # e.g. "TEST_EmployeeOnboarding" → "TEST_EmployeeOnboarding_2331"
+    # Replace TEST_LIVE_ names in the prompt with tagged versions to avoid collisions
+    # e.g. "TEST_LIVE_ITSM_Team_Dashboard" → "TEST_LIVE_ITSM_Team_Dashboard_4317"
     prompt_with_tag = re.sub(
-        r'\bTEST_(\w+)',
-        rf'TEST_\1_{run_tag}',
+        r'\bTEST_LIVE_(\w+)',
+        rf'TEST_LIVE_\1_{run_tag}',
         test["prompt"],
     )
+
     cmd = build_command(prompt_with_tag, args)
     log_path = log_dir / f"{test['id']}.jsonl"
-    print(f"[{test['id']}] ({test['type']}) running...", flush=True)
+    # Extract the tagged interface name for display
+    interface_match = re.search(r'TEST_LIVE_\w+', prompt_with_tag)
+    interface_name = interface_match.group(0) if interface_match else "?"
+    print(f"[{test['id']}] ({test['type']}) app=\"{test['app']}\" interface={interface_name}", flush=True)
+    print(f"  running...", flush=True)
 
     start = time.time()
     try:
@@ -261,10 +284,12 @@ def run_one(test, args, repo_root, log_dir, run_tag):
         tool_calls, tool_errors, final_result = extract_signals(stdout)
         status = heuristic_grade(tool_calls, tool_errors, final_result, returncode)
 
-    print(f"[{test['id']}] {status}  ({duration:.0f}s, log: {log_path.relative_to(repo_root)})", flush=True)
+    print(f"  [{test['id']}] {status}  ({duration:.0f}s, log: {log_path.relative_to(repo_root)})", flush=True)
     return {
         "id": test["id"],
         "type": test["type"],
+        "app": test["app"],
+        "interface": interface_name,
         "status": status,
         "duration_s": round(duration, 1),
         "log": str(log_path.relative_to(repo_root)),
@@ -276,7 +301,7 @@ def run_one(test, args, repo_root, log_dir, run_tag):
 # ---------------------------------------------------------------------------
 
 def run_cleanup(args, repo_root, log_dir):
-    print("[cleanup] deleting TEST_* interfaces...", flush=True)
+    print("[cleanup] deleting TEST_LIVE_* interfaces...", flush=True)
     cmd = build_command(CLEANUP_PROMPT, args)
     log_path = log_dir / "_cleanup.jsonl"
     try:
@@ -302,38 +327,44 @@ def main():
     ap.add_argument("--repo-root", type=Path, default=DEFAULT_REPO_ROOT)
     ap.add_argument("--id", action="append", default=[], help="run only this test id (repeatable)")
     ap.add_argument("--type", action="append", default=[], help="run only tests of this type (repeatable)")
+    ap.add_argument("--app", action="append", default=[], help="run only tests targeting this app (repeatable)")
     ap.add_argument("--permission-mode", default="bypassPermissions",
                      choices=["default", "acceptEdits", "bypassPermissions", "plan"],
-                     help="passed to `claude -p --permission-mode` (default: bypassPermissions, "
-                          "required for unattended runs — this repo's dev Appian instance is the target)")
+                     help="passed to `claude -p --permission-mode` (default: bypassPermissions)")
     ap.add_argument("--model", default="haiku",
-                     help="Model to use (default: haiku).")
+                     help="Model to use (default: sonnet). Haiku does not reliably invoke MCP "
+                          "tools as native tool calls — use sonnet or opus for live data tests.")
     ap.add_argument("--allowed-tools", default=(
                          "Bash,Read,Write,Edit,Skill,Agent,Task,ToolSearch,"
                          "mcp__appian__listApplications,"
+                         "mcp__appian__listRecordTypes,"
+                         "mcp__appian__getRecordType,"
+                         "mcp__appian__listRecordData,"
                          "mcp__appian__createInterface,"
                          "mcp__appian__updateInterface"),
                      help="Comma-separated tool allowlist passed to `claude -p --allowedTools`. "
-                          "Mockups need filesystem tools + app lookup + create/update interface. "
-                          "Pass '' to disable.")
+                          "Restricts the tool list to only what's needed, reducing confusion and "
+                          "token overhead. Pass '' to disable.")
     ap.add_argument("--timeout", type=int, default=900, help="per-test timeout in seconds (default: 900)")
     ap.add_argument("--log-dir", type=Path, default=None)
     ap.add_argument("--list", action="store_true", help="print matching tests and exit, run nothing")
     ap.add_argument("--cleanup", action="store_true", default=False,
-                     help="after running, delete all TEST_* interfaces (default: off)")
+                     help="after running, delete all TEST_LIVE_* interfaces (default: off)")
     ap.add_argument("--cleanup-only", action="store_true", default=False,
-                     help="skip running tests, only delete TEST_* interfaces (default: off)")
+                     help="skip running tests, only delete TEST_LIVE_* interfaces (default: off)")
     args = ap.parse_args()
 
-    tests = parse_mockups(args.tests_file)
+    tests = parse_live_data(args.tests_file)
     if args.id:
         tests = [t for t in tests if t["id"] in args.id]
     if args.type:
         tests = [t for t in tests if t["type"] in args.type]
+    if args.app:
+        tests = [t for t in tests if t["app"] in args.app]
 
     if args.list:
         for t in tests:
-            print(f"{t['id']:35s} {t['type']}")
+            print(f"{t['id']:45s} {t['type']:12s} {t['app']}")
         print(f"\n{len(tests)} test(s) match.")
         return
 
@@ -345,7 +376,7 @@ def main():
     if not (repo_root / ".mcp.json").exists():
         sys.exit(f"error: {repo_root} has no .mcp.json — pass --repo-root to point at the dev-mcp-skills checkout.")
 
-    log_dir = args.log_dir or (SCRIPT_DIR / "logs" / time.strftime("%Y%m%d-%H%M%S"))
+    log_dir = args.log_dir or (SCRIPT_DIR / "logs" / f"live-{time.strftime('%Y%m%d-%H%M%S')}")
     log_dir.mkdir(parents=True, exist_ok=True)
     # Short unique tag derived from the log directory timestamp — avoids
     # "Name is insufficiently unique" collisions with leftover interfaces
@@ -364,27 +395,28 @@ def main():
     results = []
     if not args.cleanup_only:
         if not tests:
-            sys.exit("no tests matched --id/--type filters")
+            sys.exit("no tests matched --id/--type/--app filters")
         for test in tests:
             results.append(run_one(test, args, repo_root, log_dir, run_tag))
 
-        print("\n" + "-" * 100)
-        print(f"{'id':35s} {'type':12s} {'duration':>9s}  status")
-        print("-" * 100)
+        print("\n" + "-" * 110)
+        print(f"{'id':45s} {'type':12s} {'duration':>9s}  status")
+        print("-" * 110)
         for r in results:
-            print(f"{r['id']:35s} {r['type']:12s} {r['duration_s']:>8.0f}s  {r['status']}")
+            print(f"{r['id']:45s} {r['type']:12s} {r['duration_s']:>8.0f}s  {r['status']}")
 
         # Summary stats
-        deployed = sum(1 for r in results if r["status"].startswith("DEPLOYED"))
+        deployed = sum(1 for r in results if "DEPLOYED" in r["status"] and "NO-DEPLOY" not in r["status"])
         recovered = sum(1 for r in results if "RECOVERY" in r["status"])
         failed = sum(1 for r in results if r["status"].startswith(("ERROR", "DEPLOY-FAILED", "TIMEOUT")))
-        no_deploy = sum(1 for r in results if r["status"].startswith("NO-DEPLOY"))
+        no_deploy = sum(1 for r in results if "NO-DEPLOY" in r["status"])
+        no_discovery = sum(1 for r in results if "NO-DISCOVERY" in r["status"])
         unclear = len(results) - deployed - failed - no_deploy
         total_time = sum(r["duration_s"] for r in results)
-        print("-" * 100)
-        print(f"{'TOTAL':35s} {len(results):<12d} {total_time:>8.0f}s  "
+        print("-" * 110)
+        print(f"{'TOTAL':45s} {len(results):<12d} {total_time:>8.0f}s  "
               f"deployed={deployed} (clean={deployed - recovered}, recovered={recovered}) "
-              f"failed={failed} no-deploy={no_deploy}"
+              f"failed={failed} no-deploy={no_deploy} no-discovery={no_discovery}"
               + (f" unclear={unclear}" if unclear else ""))
 
         (log_dir / "summary.json").write_text(json.dumps(results, indent=2))

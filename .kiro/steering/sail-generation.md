@@ -30,6 +30,19 @@ All shell commands (define.js, scaffold.js, validate.sh, resolve-icons.js) use t
 
 Call these MCP tools directly. One `getRecordType` call gives you all field UUIDs, relationship UUIDs, and type references needed for the definition JSON.
 
+**Minimum viable discovery for a live dashboard/record-view:**
+1. `listApplications(query)` — get app UUID (skip if already known)
+2. `listRecordTypes(appUuid)` — identify the primary record type
+3. `getRecordType(uuid)` — get fields + relationships for the primary record type
+4. `getRecordType(uuid)` for each related record type whose fields you need (e.g., lookup tables with a `label` field)
+5. `listRecordData(uuid)` — only for lookup/enum tables whose IDs you need in filters (e.g., status values 1/2/3, priority values). Skip for the primary record type.
+
+**Do NOT call:**
+- `listFolderContents` — `createInterface` with `appUuid` handles folder placement automatically
+- `listInterfaces` — if the prompt says "create", create. If it says "update" or names an existing interface to modify, update. Don't spend a round-trip confirming what the prompt already states.
+- `listRecordTypeRelationships` separately — `getRecordType` already includes relationships in its response
+- `listRecordData` on the primary record type — live dashboards query data at runtime; you only need field UUIDs from `getRecordType`
+
 **Do NOT call `getInterface` on an existing interface to read its SAIL body "for pattern
 reference."** The pipeline generates SAIL programmatically from a JSON definition — the
 specialist never needs example SAIL to imitate, and reading a 100-300 line expression body
@@ -179,9 +192,13 @@ node generator/resolve-icons.js {uuid} --auto
 
 The scripts output to `{tmpdir}/sail-generation/{uuid}/` (system temp directory).
 
-- `"placeholders": 0` → done
-- `"resolved": N` with no errors → done
+- `"placeholders": 0` → done, deploy immediately
+- `"resolved": N` with no errors → done, deploy immediately — do NOT read the file, grep for icons, or re-validate. The script handles replacement atomically.
 - Errors → manual override: `node generator/resolve-icons.js {uuid} concept1:alias1 ...`
+
+**Icon resolution is one call, not a multi-step process.** The `--auto` flag reads the file,
+infers icons from line context, replaces them in-place, and validates. After a successful
+`--auto` run, proceed directly to deploy — no Read, no Edit, no extra validate.sh.
 
 ---
 
@@ -190,7 +207,7 @@ The scripts output to `{tmpdir}/sail-generation/{uuid}/` (system temp directory)
 **Always deploy after generation — do NOT stop to ask the user for UUIDs or confirmation.**
 
 1. **Find the app UUID yourself** — call `listApplications` (with `query` if the user named the app) and pick the matching one.
-2. **Determine create vs update** — call `listInterfaces(appUuid)` with a query matching the interface name. If it exists, update; otherwise, create.
+2. **Determine create vs update from the prompt** — if the user says "create", create. If they say "update" or reference an existing interface to modify, update. Do NOT call `listInterfaces` to check — trust the prompt.
 3. **Derive the interface name** from the user's request using the app prefix + descriptive name (e.g., `ITSM_TeamDashboard`). Load `skills/appian/references/interfaces.md` if unsure about naming.
 4. **Deploy:**
 
@@ -209,17 +226,36 @@ createInterface(
 
 ## IDEAL TOOL-CALL SEQUENCE
 
+### Mockup (standalone, no app)
 1. `invoke_sub_agent` — dispatch specialist (UUID generated inline)
 2. `execute_bash` — `node generator/resolve-icons.js {uuid} --auto` (only if placeholders > 0)
-3. `listApplications` → `createInterface`/`updateInterface` — deploy to Appian using `$TMPDIR` path directly
+3. `createInterface` — deploy using `$TMPDIR` path directly
 
-That's 3–4 tool calls total.
+That's 2–3 tool calls total.
+
+### Live data (app-backed, real record types)
+1. `listApplications(query)` — get app UUID
+2. `listRecordTypes(appUuid)` — find target record type(s)
+3. `getRecordType(uuid)` × N — get fields/relationships (N = 1 primary + related lookups)
+4. `listRecordData(uuid)` × M — read lookup/enum tables to get filter values (status IDs, category names)
+5. `invoke_sub_agent` — dispatch live specialist with discovered UUIDs + enum values in brief
+6. `execute_bash` — `node generator/resolve-icons.js {uuid} --auto` (only if placeholders > 0)
+7. `createInterface` or `updateInterface` — deploy
+
+That's 5–9 tool calls total (depending on number of related record types and lookup tables).
+The orchestrator does discovery (steps 1-4), the sub-agent does definition + scaffold (step 5).
 
 ## ANTI-PATTERNS
 
 - **Asking the user for app UUID, interface name, or create/update choice** — look these up yourself via `listApplications` and `listInterfaces`
 - **Searching the filesystem for Appian object info** (`find`, `grep`, `ls` for UUIDs, record types, field names) — use MCP tools instead; Appian objects are on the server, not in local files
 - **Loading SKILL.md reference files** (appian-workflow-patterns.md, query-record-type-patterns.md, etc.) — the pipeline handles everything; don't load references for interface tasks
+- **Calling `listRecordData` on the primary record type** — live dashboards query at runtime; you only need `listRecordData` on small lookup/enum tables to discover filter values (status IDs, category names)
+- **Calling `listInterfaces`** — the prompt states whether to create or update; don't burn a round-trip confirming
+- **Calling `listFolderContents`** — `createInterface` with `appUuid` auto-places into the correct folder
+- **Calling `listRecordTypeRelationships` separately** — `getRecordType` already returns relationships
+- **Re-reading/editing the .sail file after `resolve-icons.js --auto`** — the script modifies the file in-place atomically; do not grep, read, or edit icons afterward
+- **Re-running `validate.sh` after icon resolution** — `resolve-icons.js` only replaces icon name strings ("circle" → "ticket") which cannot break validation
 - **Copying .sail files** to a different `/tmp` path before deploy (unnecessary — pass the original)
 - **Reading .sail output into context** to "verify" after validation already passed (unless Pass 3 editing is needed)
 - **Using workspace file tools** (`read_file`, `read_code`) on `$TMPDIR` paths (they'll fail — use `execute_bash cat` or switch to `--output-dir` workspace staging)

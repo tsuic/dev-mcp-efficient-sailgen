@@ -1,0 +1,128 @@
+{
+  "type": "dashboard",
+  "name": "TEST_DarkModeDashboard_0227",
+  "title": "System Monitoring Dashboard",
+  "headerSubtitle": "Real-time system health metrics",
+  "theme": {
+    "headerBg": "#1A1A2E",
+    "pageBg": "#16213E",
+    "cardBg": "#0F3460",
+    "kpiLabelColor": "#B0B0B0",
+    "kpiValueColor": "#FFFFFF",
+    "kpiSubColor": "#808080",
+    "kpiColors": [
+      "#3B82F6",
+      "#10B981",
+      "#F59E0B",
+      "#8B5CF6"
+    ],
+    "chartAccent": "#3B82F6",
+    "piePalette": [
+      "#3B82F6",
+      "#10B981",
+      "#F59E0B"
+    ],
+    "stampContent": "#FFFFFF"
+  },
+  "sections": [
+    {
+      "type": "kpis",
+      "label": "System Status",
+      "items": [
+        {
+          "label": "CPU Usage",
+          "value": "72%",
+          "sub": "4 cores active",
+          "icon": "microchip",
+          "color": "#3B82F6"
+        },
+        {
+          "label": "Memory",
+          "value": "8.2 GB",
+          "sub": "of 16 GB total",
+          "icon": "server",
+          "color": "#10B981"
+        },
+        {
+          "label": "Network I/O",
+          "value": "1.2 Gbps",
+          "sub": "peak today",
+          "icon": "signal",
+          "color": "#F59E0B"
+        },
+        {
+          "label": "Disk Usage",
+          "value": "67%",
+          "sub": "340 GB free",
+          "icon": "database",
+          "color": "#8B5CF6"
+        }
+      ]
+    },
+    {
+      "type": "chart",
+      "label": "System Load (15 min)",
+      "title": "System Load (15 min)",
+      "chartType": "line",
+      "categories": [
+        "15 min ago",
+        "12 min ago",
+        "9 min ago",
+        "6 min ago",
+        "3 min ago",
+        "now"
+      ],
+      "series": [
+        {
+          "label": "Load Average",
+          "data": [45, 52, 48, 58, 65, 72],
+          "color": "#3B82F6"
+        }
+      ]
+    },
+    {
+      "type": "columns",
+      "items": [
+        {
+          "type": "chart",
+          "label": "Traffic by Service",
+          "title": "Traffic by Service",
+          "chartType": "pie",
+          "categories": [
+            "API",
+            "Web",
+            "Workers"
+          ],
+          "series": [
+            {
+              "label": "Traffic",
+              "data": [45, 30, 25],
+              "color": "#3B82F6"
+            }
+          ]
+        },
+        {
+          "type": "chart",
+          "label": "Errors by Hour",
+          "title": "Errors by Hour",
+          "chartType": "column",
+          "categories": [
+            "18:00",
+            "19:00",
+            "20:00",
+            "21:00",
+            "22:00",
+            "23:00"
+          ],
+          "series": [
+            {
+              "label": "Errors",
+              "data": [23, 45, 38, 67, 52, 89],
+              "color": "#3B82F6"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

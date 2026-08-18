@@ -1,0 +1,147 @@
+{
+  "interface": {
+    "name": "TEST_EmployeeDirectory_4625",
+    "type": "grid",
+    "uuid": "gen-4625e8a1"
+  },
+  "header": {
+    "title": "Employee Directory",
+    "subtitle": "Find and connect with colleagues across the organization",
+    "layout": "hero"
+  },
+  "filters": [
+    {
+      "name": "department",
+      "type": "dropdown",
+      "label": "Department",
+      "placeholder": "All Departments",
+      "choices": [
+        { "display": "Engineering", "value": "Engineering" },
+        { "display": "Sales", "value": "Sales" },
+        { "display": "Marketing", "value": "Marketing" },
+        { "display": "HR", "value": "HR" },
+        { "display": "Finance", "value": "Finance" },
+        { "display": "Operations", "value": "Operations" }
+      ]
+    },
+    {
+      "name": "status",
+      "type": "dropdown",
+      "label": "Status",
+      "placeholder": "All Statuses",
+      "choices": [
+        { "display": "Active", "value": "Active" },
+        { "display": "On Leave", "value": "On Leave" },
+        { "display": "Terminated", "value": "Terminated" }
+      ]
+    }
+  ],
+  "grid": {
+    "columns": [
+      {
+        "name": "name",
+        "label": "Name",
+        "type": "text",
+        "width": "MEDIUM",
+        "primary": true
+      },
+      {
+        "name": "department",
+        "label": "Department",
+        "type": "text",
+        "width": "MEDIUM"
+      },
+      {
+        "name": "title",
+        "label": "Title",
+        "type": "text",
+        "width": "MEDIUM_PLUS"
+      },
+      {
+        "name": "location",
+        "label": "Location",
+        "type": "text",
+        "width": "NARROW_PLUS"
+      },
+      {
+        "name": "status",
+        "label": "Status",
+        "type": "tag",
+        "width": "NARROW",
+        "colorMapping": {
+          "Active": "POSITIVE",
+          "On Leave": "SECONDARY",
+          "Terminated": "NEGATIVE"
+        }
+      }
+    ],
+    "rows": [
+      {
+        "name": "Alice Johnson",
+        "department": "Engineering",
+        "title": "Senior Software Engineer",
+        "location": "San Francisco",
+        "status": "Active"
+      },
+      {
+        "name": "Bob Smith",
+        "department": "Sales",
+        "title": "Sales Manager",
+        "location": "New York",
+        "status": "Active"
+      },
+      {
+        "name": "Carol Martinez",
+        "department": "Marketing",
+        "title": "Marketing Specialist",
+        "location": "Los Angeles",
+        "status": "On Leave"
+      },
+      {
+        "name": "David Chen",
+        "department": "HR",
+        "title": "HR Business Partner",
+        "location": "Chicago",
+        "status": "Active"
+      },
+      {
+        "name": "Eve Williams",
+        "department": "Finance",
+        "title": "Financial Analyst",
+        "location": "Boston",
+        "status": "Active"
+      },
+      {
+        "name": "Frank Rodriguez",
+        "department": "Operations",
+        "title": "Operations Manager",
+        "location": "Denver",
+        "status": "On Leave"
+      },
+      {
+        "name": "Grace Lee",
+        "department": "Engineering",
+        "title": "UX Designer",
+        "location": "San Francisco",
+        "status": "Terminated"
+      },
+      {
+        "name": "Henry Brown",
+        "department": "Sales",
+        "title": "Sales Representative",
+        "location": "Seattle",
+        "status": "Active"
+      }
+    ]
+  },
+  "layout": {
+    "containerLayout": "column",
+    "columnWidths": {
+      "name": "MEDIUM",
+      "department": "MEDIUM",
+      "title": "MEDIUM_PLUS",
+      "location": "NARROW_PLUS",
+      "status": "NARROW"
+    }
+  }
+}

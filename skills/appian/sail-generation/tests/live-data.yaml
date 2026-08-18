@@ -1,0 +1,103 @@
+# =============================================================================
+# SAIL Generation Test Suite — Live Data Test Cases
+# =============================================================================
+#
+# Each test case exercises the SAIL generation pipeline against REAL Appian
+# record types, fields, and relationships on a live instance. Unlike mockup
+# tests (which use hardcoded sample data), these validate that the pipeline
+# can discover schemas via MCP tools and produce SAIL referencing real UUIDs.
+#
+# Fields:
+#   id:          Unique test identifier
+#   type:        Expected pipeline classification
+#   app:         Appian application name (looked up at runtime)
+#   prompt:      The natural-language user request (what gets sent to the agent)
+#   covers:      Components/features this test exercises (for coverage tracking)
+#
+# Naming convention:
+#   Prompts contain a literal interface name prefixed with TEST_LIVE_ (e.g.
+#   TEST_LIVE_ITSM_Team_Dashboard). At runtime the script appends a unique
+#   suffix via regex (same approach as run_mockups.py with TEST_ prefix).
+#
+# Prerequisites:
+#   - The target Appian instance must have the referenced application deployed
+#   - Record types must have data populated (tests query live records)
+#   - The agent must have MCP connectivity to the instance
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# DASHBOARD tests — live data from real record types
+# -----------------------------------------------------------------------------
+
+- id: live-dashboard-01-itsm-team
+  type: dashboard
+  app: IT Service Management
+  prompt: >
+    In the "IT Service Management" app, create an interface called
+    TEST_LIVE_ITSM_Team_Dashboard — an ITSM team dashboard with the
+    following contents:
+
+    1. KPI row (4 tiles):
+       - Open tickets count (status New/In Progress/On Hold)
+       - Unassigned tickets count (no assignee, open)
+       - Critical/High priority tickets count (open)
+       - Resolved this week count (resolvedAt in last 7 days)
+
+    2. Aging list grid: open tickets older than 5 days, oldest first —
+       title, status, priority, days open, assignee
+
+    3. Breakdown chart: open ticket count by category (or priority)
+
+    4. My Queue: open tickets assigned to the logged-in user
+  covers:
+    - live dashboard (live variant agent)
+    - KPI tiles with record-type queries
+    - filtered record counts (status, priority, assignee)
+    - date arithmetic (days open, resolved this week)
+    - a!queryRecordType with filters
+    - a!gridField backed by record data
+    - chart from aggregated record data
+    - loggedInUser() for personalized section
+    - real UUID references (record type, fields, relationships)
+
+# -----------------------------------------------------------------------------
+# RECORD-VIEW tests — live data from real record types
+# -----------------------------------------------------------------------------
+
+- id: live-record-view-01-itsm-ticket-summary
+  type: record-view
+  app: IT Service Management
+  prompt: >
+    In the "IT Service Management" app, create an interface called
+    TEST_LIVE_ITSM_Ticket_Summary — a record summary view for the
+    ITSM Ticket record type. Use the record's id field as the identifier.
+    The page title should display the ticket's title.
+
+    Key attributes (displayed prominently at the top):
+      - Status display name
+      - Priority display name
+      - Category display name
+
+    Section "Ticket Details":
+      - Title
+      - Description
+      - Category display name
+      - Created date
+      - Resolved date
+
+    Section "Assignment & Ownership":
+      - Assigned To
+      - Created By
+      - Modified By
+  covers:
+    - live record-view (live variant agent)
+    - key attributes as plain text (no tags)
+    - related record display name queries (status, priority, category via relationships)
+    - many-to-one relationship field lookups in dataBinding
+    - multiple sections with label/value pairs
+    - dynamic page title from record field (title)
+    - date fields (createdAt, resolvedAt)
+    - user fields (assignedTo, createdBy, modifiedBy)
+    - real UUID references (record type, fields, relationships)
+    - plain fieldRef on key attributes and sections

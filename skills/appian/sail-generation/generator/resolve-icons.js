@@ -98,6 +98,13 @@ const DOMAIN_HINTS = [
   { patterns: /ticket|issue|bug|incident|request|case/i, aliases: ["ticket", "bug", "life-ring"] },
   { patterns: /resolution|solve|fix|repair|remedy|answer/i, aliases: ["wrench", "check-circle", "lightbulb-o"] },
   { patterns: /history|log|audit|timeline|activity|event/i, aliases: ["history", "clock-o", "list-alt"] },
+  { patterns: /deploy|release|rocket|launch|ship|publish/i, aliases: ["rocket", "paper-plane", "cloud-upload"] },
+  { patterns: /server|uptime|cpu|memory|system|infrastructure/i, aliases: ["server", "database", "hdd-o"] },
+  { patterns: /revenue|sales|deal|pipeline|quota|growth/i, aliases: ["dollar", "line-chart", "trending-up"] },
+  { patterns: /headcount|hire|recruit|workforce|employee|onboard/i, aliases: ["users", "user-plus", "id-badge"] },
+  { patterns: /open|unassign|pending|queue|backlog|waiting/i, aliases: ["inbox", "hourglass", "clock-o"] },
+  { patterns: /close|resolve|complete|finish|done|win/i, aliases: ["check-circle", "trophy", "thumbs-up"] },
+  { patterns: /critical|urgent|high|severe|escalat/i, aliases: ["exclamation-circle", "fire", "bolt"] },
 ];
 
 // ─── Load alias list ───────────────────────────────────────────────────────
@@ -116,17 +123,27 @@ function findSailFile(uuid) {
   const dir = path.join(OUTPUT_ROOT, uuid);
   if (!fs.existsSync(dir)) return null;
   const files = fs.readdirSync(dir).filter((f) => f.endsWith(".sail"));
-  return files.length > 0 ? path.join(dir, files[0]) : null;
+  if (files.length === 0) return null;
+  if (files.length === 1) return path.join(dir, files[0]);
+  // Multiple .sail files (stale from previous runs) — pick the most recently modified
+  const sorted = files
+    .map((f) => ({ name: f, mtime: fs.statSync(path.join(dir, f)).mtimeMs }))
+    .sort((a, b) => b.mtime - a.mtime);
+  return path.join(dir, sorted[0].name);
 }
 
-// ─── Find all "circle" placeholder lines ───────────────────────────────────
-function findPlaceholders(content) {
+// ─── Find all icon values that need resolution ────────────────────────────
+function findPlaceholders(content, validAliases) {
   const lines = content.split("\n");
   const results = [];
   for (let i = 0; i < lines.length; i++) {
-    // Match "circle" as an icon value (in quotes)
-    if (lines[i].includes('"circle"')) {
-      results.push({ line: i + 1, text: lines[i] });
+    // Match icon: "value" patterns in SAIL (stampField icon, richTextIcon)
+    const match = lines[i].match(/icon:\s*"([^"]+)"/);
+    if (match) {
+      const iconValue = match[1];
+      // Skip if already a valid alias — nothing to resolve
+      if (validAliases.has(iconValue)) continue;
+      results.push({ line: i + 1, text: lines[i], concept: iconValue });
     }
   }
   return results;
@@ -169,7 +186,7 @@ function main() {
 
   const validAliases = loadAliases();
   let content = fs.readFileSync(sailFile, "utf-8");
-  const placeholders = findPlaceholders(content);
+  const placeholders = findPlaceholders(content, validAliases);
 
   const result = {
     file: path.relative(WORKSPACE_ROOT, sailFile),
@@ -197,23 +214,31 @@ function main() {
     const lines = content.split("\n");
     for (const placeholder of placeholders) {
       const lineIdx = placeholder.line - 1;
-      // Gather context: 3 lines before + current + 3 lines after
-      const contextStart = Math.max(0, lineIdx - 3);
-      const contextEnd = Math.min(lines.length - 1, lineIdx + 3);
-      const contextText = lines.slice(contextStart, contextEnd + 1).join(" ");
+      let icon = null;
 
-      const icon = inferIcon(contextText, validAliases);
+      // If the placeholder has a concept hint (e.g. "circle:revenue"), use it directly
+      if (placeholder.concept) {
+        icon = inferIcon(placeholder.concept, validAliases);
+      }
+
+      // Fall back to line context if no concept or concept didn't match
+      if (!icon) {
+        const contextStart = Math.max(0, lineIdx - 15);
+        const contextEnd = Math.min(lines.length - 1, lineIdx + 15);
+        const contextText = lines.slice(contextStart, contextEnd + 1).join(" ");
+        icon = inferIcon(contextText, validAliases);
+      }
       if (icon) {
-        // Replace only the FIRST occurrence of "circle" on this specific line
-        lines[lineIdx] = lines[lineIdx].replace('"circle"', `"${icon}"`);
-        result.replacements.push({ line: placeholder.line, from: "circle", to: icon });
+        // Replace the invalid icon value with the resolved valid alias
+        lines[lineIdx] = lines[lineIdx].replace(`"${placeholder.concept}"`, `"${icon}"`);
+        result.replacements.push({ line: placeholder.line, from: placeholder.concept, to: icon });
         result.resolved++;
       } else {
         // Use a safe generic fallback
         const fallback = "circle-o";
         if (validAliases.has(fallback)) {
-          lines[lineIdx] = lines[lineIdx].replace('"circle"', `"${fallback}"`);
-          result.replacements.push({ line: placeholder.line, from: "circle", to: fallback, note: "fallback" });
+          lines[lineIdx] = lines[lineIdx].replace(`"${placeholder.concept}"`, `"${fallback}"`);
+          result.replacements.push({ line: placeholder.line, from: placeholder.concept, to: fallback, note: "fallback" });
           result.resolved++;
         } else {
           result.errors.push({ line: placeholder.line, error: "No matching icon found and no fallback available" });
@@ -249,8 +274,8 @@ function main() {
   const limit = Math.min(pairs.length, placeholders.length);
   for (let i = 0; i < limit; i++) {
     const lineIdx = placeholders[i].line - 1;
-    lines[lineIdx] = lines[lineIdx].replace('"circle"', `"${pairs[i].alias}"`);
-    result.replacements.push({ line: placeholders[i].line, from: "circle", to: pairs[i].alias });
+    lines[lineIdx] = lines[lineIdx].replace(`"${placeholders[i].concept}"`, `"${pairs[i].alias}"`);
+    result.replacements.push({ line: placeholders[i].line, from: placeholders[i].concept, to: pairs[i].alias });
     result.resolved++;
   }
 

@@ -13,9 +13,6 @@ UUID, output path, user request, inferred entities, mode (create/edit).
 - ❌ NEVER read `rich-text-icon-aliases.md` — it's 1,139 lines that bloat context for no benefit here
 - You are a JSON author and CLI operator — nothing else
 
-## headerIcon
-Omit `headerIcon` from your definition JSON — the scaffold defaults to `"circle"`. The orchestrator's final icon-resolution pass will replace it with a domain-appropriate icon after all content is complete.
-
 ## Step 1 — Write Definition JSON via CLI
 
 Compose the full definition with all sections, rows, field types, and choices. Then run:
@@ -63,7 +60,6 @@ Read the user's original request. Does it require ANY of these?
   "type": "form",
   "title": "Human-readable title",
   "entityName": "Singular noun",
-  "headerIcon": "circle",
   "headerSubtitle": "One sentence describing purpose",
   "sections": [
     {

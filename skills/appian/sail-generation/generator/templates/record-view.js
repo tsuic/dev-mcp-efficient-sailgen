@@ -755,6 +755,18 @@ function renderFromDefinition(def) {
   const theme = resolveTheme(def.theme);
   const sectionList = sections || [];
 
+  // Resolve page title: if titleFieldRef is set and dataBinding is present,
+  // resolve it to a SAIL expression (same logic as resolveFieldValueExpr) so
+  // the page header shows the queried field value instead of a static string.
+  let titleExpr = null;
+  if (def.titleFieldRef && dataBinding) {
+    if (isLocalNameRef(def.titleFieldRef, dataBinding)) {
+      titleExpr = `local!${def.titleFieldRef}`;
+    } else {
+      titleExpr = `a!defaultValue(${entityRecordVar(entityName)}['${def.titleFieldRef}'], "-")`;
+    }
+  }
+
   // Collect all fields for local variable declarations. fieldRef-based
   // fields (bound to a dataBinding-queried value) never get their own mock
   // local! — resolveFieldValueExpr() resolves them inline instead (either to
@@ -843,6 +855,7 @@ ${varDecls}
 
 ${renderPageFrame({
     title: recordName,
+    titleExpr,
     headerKind: def.headerKind,
     headerImage: def.headerImage,
     headerRight: editButton,
