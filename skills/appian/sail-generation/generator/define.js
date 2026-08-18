@@ -736,6 +736,9 @@ function validateDashboardFilters(filters, context, errors) {
 const BARE_FIELDS_SEGMENT = /\.fields\.(?!\{)/;
 // Same requirement for ".relationships." segments.
 const BARE_RELATIONSHIPS_SEGMENT = /\.relationships\.(?!\{)/;
+// Reject obviously fabricated placeholder UUIDs (all-zeros or sequential zeros).
+// These indicate the agent invented a UUID instead of using the real one from discovery.
+const PLACEHOLDER_UUID = /\{0{8}-0{4}-0{4}-0{4}-0{12}\}|\{0{8}-0{4}-0{4}-0{4}-0{11}[0-9a-f]\}/;
 
 function validateFieldRefShape(ref, context, errors) {
   if (typeof ref !== "string") return; // caught elsewhere as a type error
@@ -751,6 +754,13 @@ function validateFieldRefShape(ref, context, errors) {
     errors.push(
       `${context}: "${ref}" has a ".relationships." segment without a "{uuid}" prefix on the ` +
       `relationship name. Use the relationshipUuid from the base record type's relationships list.`
+    );
+  }
+  if (PLACEHOLDER_UUID.test(ref)) {
+    errors.push(
+      `${context}: "${ref}" contains a placeholder/fabricated UUID (all zeros or sequential ` +
+      `zeros like {00000000-0000-0000-0000-000000000001}). This means the real UUID was not ` +
+      `supplied in the dispatch brief. Use the actual UUID from getRecordType — do not invent one.`
     );
   }
 }

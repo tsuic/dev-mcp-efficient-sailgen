@@ -1,44 +1,44 @@
 ---
 inclusion: auto
-description: "Provides context on using Appian MCP skills to build applications — loading strategy, dependency order, and key principles."
+description: "Provides context on the repo structure and how to use Appian MCP skills to build applications."
 ---
 
 # Appian Application Development Skills
 
-This repository provides **skills for building Appian applications** using the Appian MCP tools. The skill files teach you domain knowledge — naming conventions, relationship rules, data modeling patterns, dependency order, UUID handling — that MCP tool schemas cannot express on their own.
+This repository provides **skills for building Appian applications** using the Appian MCP tools. The skill files teach domain knowledge — naming conventions, relationship rules, data modeling patterns, dependency order, UUID handling — that MCP tool schemas cannot express on their own.
 
-## How to use this repo
+## Two modes of working in this repo
 
-You have Appian MCP tools available (e.g., `createRecordType`, `createInterface`, `createProcessModel`). Before calling them, load the relevant skill references from `skills/appian/` to avoid common failures like broken relationships, wrong naming conventions, or dependency ordering issues.
+### 1. Developing skill content (editing reference files, agents, guidelines)
 
-**Start here:** Read `skills/appian/SKILL.md` — it contains the resource reference map that tells you which file to load for any given task, plus the mandatory loading strategy.
+When you're editing `.md` files, updating schemas, or refining agent instructions, you're
+working on the skill itself — not calling Appian MCP tools. No special loading strategy
+is needed. Follow `AGENTS.md` for contribution guidelines.
 
-## Quick start
+### 2. Building Appian applications (calling MCP tools)
 
-1. Identify your task (e.g., create a record type, build an interface, wire a process model)
-2. Load universal references first (Step 1 in SKILL.md)
-3. Load the domain-specific reference for your task (Step 2)
-4. Follow the dependency order when creating multiple objects
-5. For interfaces, use the SAIL generation pipeline (`sail-generation/`) — it handles validation locally
+When you need to create Appian objects (record types, interfaces, process models, etc.),
+load the relevant skill references first:
+
+**Start here:** Read `skills/appian/SKILL.md` — it contains the resource reference map
+that tells you which file to load for any given task, plus the mandatory loading strategy.
+
+**For SAIL UI generation:** The pipeline runs on Claude Code. See
+`skills/appian/sail-generation/agents/orchestrator.md` for the full workflow, or the
+Kiro platform notes in `.kiro/steering/sail-generation.md` for Kiro-specific dispatch.
 
 ## Skill structure
 
 ```
 skills/appian/
   SKILL.md                  ← Entry point: reference map, loading strategy, dependency order
-  references/
-    tools-mcp.md            ← MCP tool patterns, UUID handling, non-obvious behaviors
-    record-types.md         ← Record type schemas, fields, relationships, actions
-    data-modeling.md        ← Entity design, normalization, naming conventions
-    interfaces.md           ← SAIL forms, dashboards, summary views
-    process-models.md       ← Nodes, variables, start forms, flow patterns
-    sail.md                 ← Components, layouts, data binding, grids
-    ...                     ← Additional reference files (see resource map in SKILL.md)
-  sail-generation/          ← Script-driven SAIL generation pipeline
+  references/               ← Domain knowledge (tool-agnostic)
+  sail-generation/          ← Script-driven SAIL generation pipeline (runs on Claude Code)
+    agents/                 ← Orchestrator + 14 specialist agent instructions
     generator/              ← Node.js scripts (define, scaffold, resolve-icons)
     validator/              ← Local SAIL validator (pre-compiled)
-    agents/                 ← 14 specialist agent instructions
     guidelines/             ← Logic patterns, JSON schemas, icon aliases
+    tests/                  ← Automated test suites (mockups + live data)
 ```
 
 ## Dependency order
@@ -63,7 +63,7 @@ Create Appian objects in this order (later objects reference earlier ones):
 - **Always load references before calling MCP tools.** The skill prevents failures that tool schemas alone cannot prevent.
 - **Never fabricate UUIDs.** Get them from the environment via list/get operations.
 - **Follow naming conventions.** Each reference file documents the conventions for its object type.
-- **Use the SAIL generation pipeline for interfaces.** The pipeline in `sail-generation/` handles validation locally via scripts.
+- **Use the SAIL generation pipeline for interfaces.** Runs on Claude Code — see `sail-generation/README.md`.
 
 ## Git workflow (for contributing to this repo)
 
