@@ -92,7 +92,7 @@ function renderFilterValue(value) {
   if (typeof value === "string") {
     // Check if it's a SAIL expression (contains parentheses or starts with known functions)
     if (value.includes("(") || value.startsWith("local!") || value.startsWith("loggedInUser")) return value;
-    return `"${value}"`;
+    return `"${value.replace(/"/g, '""')}"`;
   }
   if (typeof value === "boolean") return value ? "true()" : "false()";
   return String(value);

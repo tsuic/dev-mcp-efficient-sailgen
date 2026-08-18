@@ -11,6 +11,7 @@
 
 const { renderPageFrame } = require("../page-frame");
 const { resolveTheme } = require("../theme");
+const { sailEsc } = require("../shared");
 
 // =============================================================================
 // DEFINITION-DRIVEN RENDERING (Pass 2 of the two-pass pipeline)
@@ -197,8 +198,8 @@ function renderFromDefinition(def) {
         label: "${f.label}",
         labelPosition: "ABOVE",
         placeholder: "All",
-        choiceLabels: {${f.choices.map((c) => `"${c}"`).join(", ")}},
-        choiceValues: {${f.choices.map((c) => `"${c}"`).join(", ")}},
+        choiceLabels: {${f.choices.map((c) => `"${sailEsc(c)}"`).join(", ")}},
+        choiceValues: {${f.choices.map((c) => `"${sailEsc(c)}"`).join(", ")}},
         value: ${filterVarName(f.column)},
         saveInto: ${filterVarName(f.column)}
       )`

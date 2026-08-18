@@ -36,4 +36,10 @@ function toTitleCase(str) {
   return str.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-module.exports = { toLocalVar, toCamelCase, toTitleCase };
+/** Escape a string for use inside SAIL double-quoted literals.
+ *  SAIL uses "" to represent a literal " inside a string. */
+function sailEsc(str) {
+  return str.replace(/"/g, '""');
+}
+
+module.exports = { toLocalVar, toCamelCase, toTitleCase, sailEsc };

@@ -18,7 +18,7 @@
  *   ✅ No record-only params (showSearchBox, userFilters, recordActions)
  */
 
-const { toTitleCase } = require("../shared");
+const { toTitleCase, sailEsc } = require("../shared");
 const { weightToSailWidth } = require("../define");
 const { resolveTheme } = require("../theme");
 
@@ -38,6 +38,7 @@ function toLocalVar(name) {
       .join("")
   );
 }
+
 
 // ---------------------------------------------------------------------------
 // Field renderer — produces the SAIL component string for one field
@@ -59,7 +60,7 @@ function optionalFieldParams(field, indent) {
 
 function renderField(field, varName, indent) {
   const i = indent;
-  const label = field.label || toTitleCase(field.name);
+  const label = sailEsc(field.label || toTitleCase(field.name));
   const type = field.type || "text";
   const required = field.required ? "true()" : "false()";
   const placeholder = field.placeholder ? `\n${i}  placeholder: "${field.placeholder}",` : "";
@@ -153,8 +154,8 @@ function renderField(field, varName, indent) {
 
     case "dropdown": {
       const choices = field.choices || [];
-      const labelsStr = choices.map((c) => `"${c.label}"`).join(", ");
-      const valuesStr = choices.map((c) => `"${c.value}"`).join(", ");
+      const labelsStr = choices.map((c) => `"${sailEsc(c.label)}"`).join(", ");
+      const valuesStr = choices.map((c) => `"${sailEsc(c.value)}"`).join(", ");
       return [
         `${i}a!dropdownField(`,
         `${i}  label: "${label}",`,
@@ -172,12 +173,12 @@ function renderField(field, varName, indent) {
 
     case "radio": {
       const choices = field.choices || [];
-      const labelsStr = choices.map((c) => `"${c.label}"`).join(", ");
+      const labelsStr = choices.map((c) => `"${sailEsc(c.label)}"`).join(", ");
       const valuesStr = choices.map((c) => {
         // booleans stay unquoted, strings get quoted
         if (c.value === true || c.value === "true") return "true()";
         if (c.value === false || c.value === "false") return "false()";
-        return `"${c.value}"`;
+        return `"${sailEsc(c.value)}"`;
       }).join(", ");
       return [
         `${i}a!radioButtonField(`,
@@ -196,8 +197,8 @@ function renderField(field, varName, indent) {
 
     case "checkbox": {
       const choices = field.choices || [];
-      const labelsStr = choices.map((c) => `"${c.label}"`).join(", ");
-      const valuesStr = choices.map((c) => `"${c.value}"`).join(", ");
+      const labelsStr = choices.map((c) => `"${sailEsc(c.label)}"`).join(", ");
+      const valuesStr = choices.map((c) => `"${sailEsc(c.value)}"`).join(", ");
       return [
         `${i}a!checkboxField(`,
         `${i}  label: "${label}",`,
@@ -263,7 +264,7 @@ function renderField(field, varName, indent) {
           ? "a!cardTemplateBarTextJustified"
           : "a!cardTemplateTile";
       const dataRows = choices.map((c) =>
-        `${i}    a!map(id: "${c.value}", primaryText: "${c.label}")`
+        `${i}    a!map(id: "${sailEsc(c.value)}", primaryText: "${sailEsc(c.label)}")`
       ).join(",\n");
       const maxSel = field.maxSelections ? `\n${i}  maxSelections: ${field.maxSelections},` : "";
       return [
@@ -343,8 +344,8 @@ function renderField(field, varName, indent) {
 
     case "multipleDropdown": {
       const choices = field.choices || [];
-      const labelsStr = choices.map((c) => `"${c.label}"`).join(", ");
-      const valuesStr = choices.map((c) => `"${c.value}"`).join(", ");
+      const labelsStr = choices.map((c) => `"${sailEsc(c.label)}"`).join(", ");
+      const valuesStr = choices.map((c) => `"${sailEsc(c.value)}"`).join(", ");
       return [
         `${i}a!multipleDropdownField(`,
         `${i}  label: "${label}",`,
