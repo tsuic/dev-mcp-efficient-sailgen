@@ -215,9 +215,10 @@ def extract_signals(stdout_text):
             continue
         t = obj.get("type")
         if t == "assistant":
+            ts = obj.get("timestamp")
             for block in obj.get("message", {}).get("content", []):
                 if block.get("type") == "tool_use":
-                    tool_calls.append({"name": block.get("name"), "input": block.get("input")})
+                    tool_calls.append({"name": block.get("name"), "input": block.get("input"), "timestamp": ts})
         elif t == "user":
             for block in obj.get("message", {}).get("content", []):
                 if block.get("type") == "tool_result" and block.get("is_error"):
@@ -225,6 +226,99 @@ def extract_signals(stdout_text):
         elif t == "result":
             final_result = obj
     return tool_calls, tool_errors, final_result
+
+
+def extract_phase_timings(tool_calls):
+    """Extract per-phase timing from tool call timestamps.
+
+    Phases (for mockup tests):
+      - define: writing the definition JSON (Write tool to a *def*.json or Bash cat > *.json)
+      - generate: scaffold.js and resolve-icons.js calls
+      - deploy: createInterface / updateInterface MCP call
+
+    Returns a dict with phase durations in seconds, or None for phases not detected.
+    """
+    from datetime import datetime
+
+    def parse_ts(ts):
+        if not ts:
+            return None
+        try:
+            return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            return None
+
+    phases = {"define": None, "generate": None, "deploy": None}
+
+    # Find definition write — Write to a *def*.json or Bash with cat > *.json or define.js
+    define_start = None
+    define_end = None
+    for i, tc in enumerate(tool_calls):
+        name = tc["name"]
+        inp = tc.get("input") or {}
+        is_define = False
+        if name == "Write":
+            fp = (inp.get("file_path") or "").lower()
+            if ".json" in fp and ("def" in fp or "definition" in fp):
+                is_define = True
+        elif name == "Bash":
+            cmd = inp.get("command") or ""
+            if "define.js" in cmd:
+                is_define = True
+            elif ".json" in cmd and ("def" in cmd.lower() or "definition" in cmd.lower()):
+                is_define = True
+        if is_define:
+            if define_start is None:
+                define_start = parse_ts(tc["timestamp"])
+            define_end = parse_ts(tc["timestamp"])
+
+    # Find generate phase — scaffold.js and resolve-icons.js
+    gen_start = None
+    gen_end = None
+    for tc in tool_calls:
+        if tc["name"] == "Bash":
+            cmd = (tc.get("input") or {}).get("command") or ""
+            if "scaffold.js" in cmd or "resolve-icons.js" in cmd:
+                ts = parse_ts(tc["timestamp"])
+                if ts:
+                    if gen_start is None:
+                        gen_start = ts
+                    gen_end = ts
+
+    # Find deploy phase — createInterface / updateInterface
+    deploy_start = None
+    deploy_end = None
+    for tc in tool_calls:
+        if tc["name"] in ("mcp__appian__createInterface", "mcp__appian__updateInterface"):
+            ts = parse_ts(tc["timestamp"])
+            if ts:
+                if deploy_start is None:
+                    deploy_start = ts
+                deploy_end = ts
+
+    # Calculate durations: phase duration = start of next phase - start of this phase
+    # For the last phase (deploy), use generate_end → deploy_start as an approximation
+    timestamps = []
+    if define_start:
+        timestamps.append(("define", define_start))
+    if gen_start:
+        timestamps.append(("generate", gen_start))
+    if deploy_start:
+        timestamps.append(("deploy", deploy_start))
+
+    timestamps.sort(key=lambda x: x[1])
+
+    for i, (phase, start) in enumerate(timestamps):
+        if i + 1 < len(timestamps):
+            next_start = timestamps[i + 1][1]
+            phases[phase] = round((next_start - start).total_seconds(), 1)
+        else:
+            # Last phase — estimate from start to a few seconds after (we don't have end)
+            # Use the overall end minus this start if we had total time, but we don't here.
+            # Mark as the remainder.
+            phases[phase] = None  # Will be calculated from total later
+
+    return phases, define_start, deploy_start
 
 
 def run_one(test, args, repo_root, log_dir, run_tag):
@@ -257,16 +351,46 @@ def run_one(test, args, repo_root, log_dir, run_tag):
 
     if timed_out:
         status = f"TIMEOUT (> {args.timeout}s — see log)"
+        phase_timings = {"define": None, "generate": None, "deploy": None}
     else:
         tool_calls, tool_errors, final_result = extract_signals(stdout)
         status = heuristic_grade(tool_calls, tool_errors, final_result, returncode)
+        phase_timings, phase_first_ts, phase_last_ts = extract_phase_timings(tool_calls)
+        # Fill in the last phase duration as remainder of total time
+        if phase_last_ts and phase_first_ts:
+            accounted = sum(v for v in phase_timings.values() if v is not None)
+            # Last phase = total - time before first phase - accounted phases
+            from datetime import datetime
+            first_tool_ts = None
+            for tc in tool_calls:
+                ts_str = tc.get("timestamp")
+                if ts_str:
+                    try:
+                        first_tool_ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                    except (ValueError, TypeError):
+                        pass
+                    break
+            if first_tool_ts and phase_last_ts:
+                pipeline_duration = duration - (phase_first_ts - first_tool_ts).total_seconds()
+                last_phase = [k for k, v in phase_timings.items() if v is None]
+                if last_phase and pipeline_duration > accounted:
+                    phase_timings[last_phase[0]] = round(pipeline_duration - accounted, 1)
 
-    print(f"[{test['id']}] {status}  ({duration:.0f}s, log: {log_path.relative_to(repo_root)})", flush=True)
+    timing_parts = []
+    for phase in ("define", "generate", "deploy"):
+        v = phase_timings.get(phase)
+        timing_parts.append(f"{phase}={v:.0f}s" if v is not None else f"{phase}=?")
+    timing_str = " | ".join(timing_parts)
+
+    print(f"[{test['id']}] {status}  ({duration:.0f}s total, {timing_str}, log: {log_path.relative_to(repo_root)})", flush=True)
     return {
         "id": test["id"],
         "type": test["type"],
         "status": status,
         "duration_s": round(duration, 1),
+        "phase_define_s": phase_timings.get("define"),
+        "phase_generate_s": phase_timings.get("generate"),
+        "phase_deploy_s": phase_timings.get("deploy"),
         "log": str(log_path.relative_to(repo_root)),
     }
 
@@ -368,11 +492,14 @@ def main():
         for test in tests:
             results.append(run_one(test, args, repo_root, log_dir, run_tag))
 
-        print("\n" + "-" * 100)
-        print(f"{'id':35s} {'type':12s} {'duration':>9s}  status")
-        print("-" * 100)
+        print("\n" + "-" * 130)
+        print(f"{'id':35s} {'type':12s} {'total':>6s} {'define':>7s} {'generate':>9s} {'deploy':>7s}  status")
+        print("-" * 130)
         for r in results:
-            print(f"{r['id']:35s} {r['type']:12s} {r['duration_s']:>8.0f}s  {r['status']}")
+            def_s = f"{r['phase_define_s']:.0f}s" if r.get('phase_define_s') is not None else "?"
+            gen_s = f"{r['phase_generate_s']:.0f}s" if r.get('phase_generate_s') is not None else "?"
+            dep_s = f"{r['phase_deploy_s']:.0f}s" if r.get('phase_deploy_s') is not None else "?"
+            print(f"{r['id']:35s} {r['type']:12s} {r['duration_s']:>5.0f}s {def_s:>7s} {gen_s:>9s} {dep_s:>7s}  {r['status']}")
 
         # Summary stats
         deployed = sum(1 for r in results if r["status"].startswith("DEPLOYED"))
@@ -381,11 +508,23 @@ def main():
         no_deploy = sum(1 for r in results if r["status"].startswith("NO-DEPLOY"))
         unclear = len(results) - deployed - failed - no_deploy
         total_time = sum(r["duration_s"] for r in results)
-        print("-" * 100)
-        print(f"{'TOTAL':35s} {len(results):<12d} {total_time:>8.0f}s  "
+        avg_define = [r["phase_define_s"] for r in results if r.get("phase_define_s") is not None]
+        avg_generate = [r["phase_generate_s"] for r in results if r.get("phase_generate_s") is not None]
+        avg_deploy = [r["phase_deploy_s"] for r in results if r.get("phase_deploy_s") is not None]
+        print("-" * 130)
+        print(f"{'TOTAL':35s} {len(results):<12d} {total_time:>5.0f}s  "
               f"deployed={deployed} (clean={deployed - recovered}, recovered={recovered}) "
               f"failed={failed} no-deploy={no_deploy}"
               + (f" unclear={unclear}" if unclear else ""))
+        if avg_define or avg_generate or avg_deploy:
+            parts = []
+            if avg_define:
+                parts.append(f"define={sum(avg_define)/len(avg_define):.1f}s")
+            if avg_generate:
+                parts.append(f"generate={sum(avg_generate)/len(avg_generate):.1f}s")
+            if avg_deploy:
+                parts.append(f"deploy={sum(avg_deploy)/len(avg_deploy):.1f}s")
+            print(f"{'AVG PHASES':35s} {' | '.join(parts)}")
 
         (log_dir / "summary.json").write_text(json.dumps(results, indent=2))
 
