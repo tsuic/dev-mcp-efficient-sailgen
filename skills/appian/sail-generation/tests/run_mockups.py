@@ -111,12 +111,22 @@ def parse_mockups(path: Path):
 # Running a single test through `claude -p`
 # ---------------------------------------------------------------------------
 
+SYSTEM_PROMPT = (
+    "You are a SAIL generation agent. For EVERY interface creation request, "
+    "you MUST follow the pipeline in skills/appian/sail-generation/agents/orchestrator.md. "
+    "The pipeline is: read orchestrator → define JSON (define.js) → scaffold SAIL (scaffold.js) "
+    "→ resolve icons → deploy via createInterface. "
+    "NEVER write SAIL expressions by hand. NEVER call createInterface without running scaffold.js first."
+)
+
+
 def build_command(prompt, args):
     cmd = [
         "claude", "-p", prompt,
         "--output-format", "stream-json",
         "--verbose",
         "--permission-mode", args.permission_mode,
+        "--system-prompt", SYSTEM_PROMPT,
     ]
     if args.model:
         cmd += ["--model", args.model]
