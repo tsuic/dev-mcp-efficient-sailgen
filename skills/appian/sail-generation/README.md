@@ -32,7 +32,7 @@ Orchestrator (classify request type)
     ▼
 Specialist Agent (write definition JSON)
     │
-    ├── node generator/define.js --write {uuid} '{json}'   ← validates + saves definition
+    ├── node generator/define.js --write {uuid} --file /tmp/def-{uuid}.json   ← validates + saves definition
     │
     ▼
     ├── node generator/scaffold.js --from-definition {uuid} ← renders SAIL from definition

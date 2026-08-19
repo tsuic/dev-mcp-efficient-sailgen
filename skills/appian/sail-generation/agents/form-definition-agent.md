@@ -18,13 +18,15 @@ UUID, output path, user request, inferred entities, mode (create/edit).
 Compose the full definition with all sections, rows, field types, and choices. Then run:
 
 ```bash
-node generator/define.js --write {uuid} '{...json...}'
+# Write the full JSON to a temp file with the Write tool (e.g. /tmp/def-{uuid}.json),
+# then pass its path — NEVER pass JSON inline as a shell argument.
+node generator/define.js --write {uuid} --file /tmp/def-{uuid}.json
 ```
 
-Shell-escape single quotes inside JSON values as `'\''`.
+With `--file` there is no shell escaping — the file content is read verbatim.
 
 If the command fails (exit 1), read the error, fix the JSON, re-run. Do NOT proceed until exit 0.
-Do NOT write `definition.json` with Write/fs_write — always use `--write`.
+Write your JSON to a temp file for `--file`; just never hand-write the pipeline's output `definition.json` — always use `--write`.
 
 ## Step 2 — Scaffold
 

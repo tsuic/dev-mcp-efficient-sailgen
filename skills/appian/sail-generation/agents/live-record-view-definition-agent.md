@@ -25,7 +25,10 @@ Decide whether you already have a Complete_Data_Binding_Block before doing anyth
 - **Not complete yet (identifiers still being resolved, or you haven't decided on additional display content) → perform the skeleton, exactly as the mock agent does:**
 
 ```bash
-node generator/define.js --write {uuid} '{"type":"record-view","title":"...","entityName":"...","recordName":"...","skeleton":true}'
+# Write this skeleton to a temp file with the Write tool (e.g. /tmp/def-{uuid}.json):
+#   {"type":"record-view","title":"...","entityName":"...","recordName":"...","skeleton":true}
+# then pass its path (never inline):
+node generator/define.js --write {uuid} --file /tmp/def-{uuid}.json
 # scaffold.js prints single-line JSON on stdout; `outputPath` is the ABSOLUTE path it
 # wrote. Do not assemble a relative `output/{uuid}/...` path — the default output root is a
 # temp dir, so a relative path resolves to nothing (or creates a junk dir in the repo).
@@ -61,10 +64,11 @@ Use `keyAttributes`/`sections`/`layout` to actually DISPLAY the fields `dataBind
 This means: for every `dataBinding.fields`/`relatedRecordData` entry you want visible on the page, add a matching `keyAttributes` or `sections[].fields` entry with `fieldRef` set to that entry's field reference or `localName`. Only hand off to Pass 3 (`display-agent`) for content `keyAttributes`/`sections`/`layout`'s fixed shapes genuinely can't express — conditional visibility, multiple action buttons, custom per-item formatting a `relatedRecordData` entry's `itemFields` can't cover, or similar bespoke behavior. Displaying a plain queried field or a relationship-qualified lookup is never itself a reason to hand off.
 
 ```bash
-node generator/define.js --write {uuid} '{...json with dataBinding...}'
+# Write the full JSON (with dataBinding) to a temp file with the Write tool, then pass its path:
+node generator/define.js --write {uuid} --file /tmp/def-{uuid}.json
 ```
 
-Shell-escape single quotes as `'\''`. Do NOT write definition.json with Write/fs_write — always use `--write`.
+With `--file` there is no shell escaping — the file content is read verbatim. Write your JSON to a temp file for `--file`; just never hand-write the pipeline's output `definition.json` — always use `--write`.
 
 **Loop on `define.js --write` until validation passes before ever calling `scaffold.js`.** If validation fails, fix the JSON and re-run — never scaffold against a failing definition.
 

@@ -496,9 +496,14 @@
  * =============================================================================
  * USAGE
  * =============================================================================
- *   node generator/define.js --write    <uuid> '<json>'
+ *   node generator/define.js --write    <uuid> --file <path>   (preferred)
+ *   node generator/define.js --write    <uuid> '<json>'        (inline; fragile)
  *   node generator/define.js --validate <uuid>
  *   node generator/define.js --schema
+ *
+ * Prefer --file: write the definition JSON to a file (e.g. with the Write tool),
+ * then pass its path. Passing JSON inline as a shell argument breaks on any
+ * quote, $, backtick, backslash, or newline in the content.
  * =============================================================================
  */
 
@@ -1934,9 +1939,27 @@ const command = filteredArgs[0];
 
 if (command === "--write") {
   const uuid = filteredArgs[1];
-  const jsonStr = filteredArgs[2];
+  // JSON source: prefer --file <path> (robust — no shell escaping). Fall back to
+  // an inline '<json>' 3rd positional arg for backward compatibility.
+  const fileIdx = filteredArgs.indexOf("--file");
+  let jsonStr;
+  if (fileIdx !== -1) {
+    const filePath = filteredArgs[fileIdx + 1];
+    if (!filePath) {
+      console.error("Usage: node generator/define.js [--output-dir <path>] --write <uuid> --file <path>");
+      process.exit(1);
+    }
+    try {
+      jsonStr = fs.readFileSync(filePath, "utf-8");
+    } catch (e) {
+      console.error(`Cannot read definition file '${filePath}': ${e.message}`);
+      process.exit(1);
+    }
+  } else {
+    jsonStr = filteredArgs[2];
+  }
   if (!uuid || !jsonStr) {
-    console.error("Usage: node generator/define.js [--output-dir <path>] --write <uuid> '<json>'");
+    console.error("Usage: node generator/define.js [--output-dir <path>] --write <uuid> (--file <path> | '<json>')");
     process.exit(1);
   }
   let def;
@@ -1996,9 +2019,13 @@ if (command === "--write") {
 define.js — UI Definition writer (Pass 1 of 2-pass generation)
 
 Commands:
-  node generator/define.js --write    <uuid> '<json>'  Write + validate a definition JSON
-  node generator/define.js --validate <uuid>           Validate existing definition.json
-  node generator/define.js --schema                    Print the definition JSON schema
+  node generator/define.js --write <uuid> --file <path>  Write + validate a definition JSON (preferred)
+  node generator/define.js --write <uuid> '<json>'       Same, but inline JSON (fragile — avoid)
+  node generator/define.js --validate <uuid>             Validate existing definition.json
+  node generator/define.js --schema                      Print the definition JSON schema
+
+Prefer --file: write the JSON to a file, then pass its path. Inline JSON breaks
+on any quote, $, backtick, backslash, or newline in the content.
 
 The LLM writes definition.json, scaffold.js reads it.
 See file header for full schema documentation.

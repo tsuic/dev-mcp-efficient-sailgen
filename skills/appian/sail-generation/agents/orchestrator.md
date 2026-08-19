@@ -122,7 +122,8 @@ needed (e.g., avg resolution time requiring `forEach`, custom interactions), use
 `--output-dir` to write to a workspace-local path so you can edit the file before deploying:
 
 ```bash
-node generator/define.js --output-dir /tmp/sail-staging --write {uuid} '{json}'
+# Write the definition JSON to a temp file with the Write tool, then pass its path.
+node generator/define.js --output-dir /tmp/sail-staging --write {uuid} --file /tmp/def-{uuid}.json
 node generator/scaffold.js --output-dir /tmp/sail-staging --from-definition {uuid}
 ```
 
@@ -155,8 +156,12 @@ CONCRETE IDENTIFIERS: (paste record type UUIDs, field UUIDs, relationship UUIDs 
 PIPELINE REMINDER (definition agents):
 You MUST use the definition pipeline: write definition JSON → scaffold.js renders SAIL.
 NEVER write raw SAIL components by hand. NEVER mkdir an output directory.
+Write the definition JSON to a temp file with the Write tool, then pass its PATH via
+--file. NEVER pass JSON inline as a shell argument ('{json}') — a quote, $, backtick,
+backslash, or newline in any label breaks shell quoting and wastes many turns.
 All commands run from: skills/appian/sail-generation/
-  node generator/define.js --write {uuid} '{json}'
+  # (write /tmp/def-{uuid}.json with the Write tool first)
+  node generator/define.js --write {uuid} --file /tmp/def-{uuid}.json
   node generator/scaffold.js --from-definition {uuid}
   ./validate.sh <outputPath from scaffold.js stdout>
 ```

@@ -89,9 +89,11 @@ a shape) or a leaf (one piece of content)?
 
 1. **Author the full definition** — the layout-tree `root` with real leaf props:
    ```bash
-   node generator/define.js --write {uuid} '{...full JSON...}'
+   # Write the full JSON to a temp file with the Write tool, then pass its path
+   # (never inline as a shell argument):
+   node generator/define.js --write {uuid} --file /tmp/def-{uuid}.json
    ```
-   Shell-escape single quotes as `'\''`. Fix JSON and re-run until exit 0.
+   With `--file` there is no shell escaping — the file content is read verbatim. Fix JSON and re-run until exit 0.
 2. **Scaffold**:
    ```bash
    # scaffold.js prints single-line JSON on stdout; `outputPath` is the ABSOLUTE path it
