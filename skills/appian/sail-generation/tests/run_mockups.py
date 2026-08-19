@@ -242,9 +242,17 @@ def extract_phase_timings(tool_calls):
     """Extract per-phase timing from tool call timestamps.
 
     Phases (for mockup tests):
-      - define: writing the definition JSON (Write tool to a *def*.json or Bash cat > *.json)
+      - define: composing + validating the definition JSON
+        (includes LLM thinking time, agent file reads, and define.js execution)
       - generate: scaffold.js and resolve-icons.js calls
       - deploy: createInterface / updateInterface MCP call
+
+    Measurement boundaries:
+      - define starts at: Agent dispatch or first Read of a definition-agent file
+        (whichever marks the beginning of definition work)
+      - define ends at: scaffold.js start
+      - generate ends at: deploy start
+      - deploy: remainder
 
     Returns a dict with phase durations in seconds, or None for phases not detected.
     """
@@ -260,75 +268,88 @@ def extract_phase_timings(tool_calls):
 
     phases = {"define": None, "generate": None, "deploy": None}
 
-    # Find definition write — Write to a *def*.json or Bash with cat > *.json or define.js
-    define_start = None
-    define_end = None
-    for i, tc in enumerate(tool_calls):
+    # Find the start of definition work — when the agent begins working on the JSON.
+    # This is either:
+    #   1. An Agent dispatch call (sub-agent architecture)
+    #   2. First Read of a *definition-agent* file (direct architecture)
+    #   3. First Read of the orchestrator file (fallback — earliest planning work)
+    # We take the earliest signal that definition work has started.
+    define_work_start = None
+    for tc in tool_calls:
         name = tc["name"]
         inp = tc.get("input") or {}
-        is_define = False
-        if name == "Write":
-            fp = (inp.get("file_path") or "").lower()
-            if ".json" in fp and ("def" in fp or "definition" in fp):
-                is_define = True
-        elif name == "Bash":
-            cmd = inp.get("command") or ""
-            if "define.js" in cmd:
-                is_define = True
-            elif ".json" in cmd and ("def" in cmd.lower() or "definition" in cmd.lower()):
-                is_define = True
-        if is_define:
-            if define_start is None:
-                define_start = parse_ts(tc["timestamp"])
-            define_end = parse_ts(tc["timestamp"])
+        ts = parse_ts(tc.get("timestamp"))
+        if not ts:
+            continue
 
-    # Find generate phase — scaffold.js and resolve-icons.js
+        if name == "Agent":
+            # Sub-agent dispatch — definition work begins here
+            if define_work_start is None:
+                define_work_start = ts
+            break  # Agent call is the clearest signal
+        elif name == "Read":
+            fp = (inp.get("file_path") or "").lower()
+            if "definition-agent" in fp or "definition_agent" in fp:
+                if define_work_start is None:
+                    define_work_start = ts
+                break
+
+    # Fallback: if no agent dispatch or definition-agent read found,
+    # use the first define.js / definition Write call (old behavior)
+    if define_work_start is None:
+        for tc in tool_calls:
+            name = tc["name"]
+            inp = tc.get("input") or {}
+            is_define = False
+            if name == "Write":
+                fp = (inp.get("file_path") or "").lower()
+                if ".json" in fp and ("def" in fp or "definition" in fp):
+                    is_define = True
+            elif name == "Bash":
+                cmd = inp.get("command") or ""
+                if "define.js" in cmd:
+                    is_define = True
+                elif ".json" in cmd and ("def" in cmd.lower() or "definition" in cmd.lower()):
+                    is_define = True
+            if is_define:
+                define_work_start = parse_ts(tc["timestamp"])
+                break
+
+    # Find generate phase start — scaffold.js
     gen_start = None
-    gen_end = None
     for tc in tool_calls:
         if tc["name"] == "Bash":
             cmd = (tc.get("input") or {}).get("command") or ""
-            if "scaffold.js" in cmd or "resolve-icons.js" in cmd:
+            if "scaffold.js" in cmd:
                 ts = parse_ts(tc["timestamp"])
-                if ts:
-                    if gen_start is None:
-                        gen_start = ts
-                    gen_end = ts
+                if ts and gen_start is None:
+                    gen_start = ts
 
     # Find deploy phase — createInterface / updateInterface
     deploy_start = None
-    deploy_end = None
     for tc in tool_calls:
         if tc["name"] in ("mcp__appian__createInterface", "mcp__appian__updateInterface"):
             ts = parse_ts(tc["timestamp"])
-            if ts:
-                if deploy_start is None:
-                    deploy_start = ts
-                deploy_end = ts
+            if ts and deploy_start is None:
+                deploy_start = ts
 
-    # Calculate durations: phase duration = start of next phase - start of this phase
-    # For the last phase (deploy), use generate_end → deploy_start as an approximation
-    timestamps = []
-    if define_start:
-        timestamps.append(("define", define_start))
-    if gen_start:
-        timestamps.append(("generate", gen_start))
-    if deploy_start:
-        timestamps.append(("deploy", deploy_start))
+    # Compute durations using boundary-based measurement:
+    # - define = define_work_start → gen_start
+    # - generate = gen_start → deploy_start
+    # - deploy = deploy_start → end (filled by caller)
 
-    timestamps.sort(key=lambda x: x[1])
+    if define_work_start and gen_start:
+        phases["define"] = round((gen_start - define_work_start).total_seconds(), 1)
+    elif define_work_start and deploy_start and not gen_start:
+        phases["define"] = round((deploy_start - define_work_start).total_seconds(), 1)
 
-    for i, (phase, start) in enumerate(timestamps):
-        if i + 1 < len(timestamps):
-            next_start = timestamps[i + 1][1]
-            phases[phase] = round((next_start - start).total_seconds(), 1)
-        else:
-            # Last phase — estimate from start to a few seconds after (we don't have end)
-            # Use the overall end minus this start if we had total time, but we don't here.
-            # Mark as the remainder.
-            phases[phase] = None  # Will be calculated from total later
+    if gen_start and deploy_start:
+        phases["generate"] = round((deploy_start - gen_start).total_seconds(), 1)
 
-    return phases, define_start, deploy_start
+    # deploy duration filled by caller
+    first_phase_ts = define_work_start or gen_start or deploy_start
+    last_phase_ts = deploy_start or gen_start or define_work_start
+    return phases, first_phase_ts, last_phase_ts
 
 
 def run_one(test, args, repo_root, log_dir, run_tag):

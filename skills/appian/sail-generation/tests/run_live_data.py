@@ -260,10 +260,15 @@ def extract_phase_timings(tool_calls):
     """Extract per-phase timing from tool call timestamps.
 
     Phases (for live-data tests):
-      - discovery: MCP calls to list/get record types and fields
-      - define: writing the definition JSON
-      - generate: scaffold.js and resolve-icons.js calls
-      - deploy: createInterface / updateInterface MCP call
+      - discovery: first MCP discovery call → last MCP discovery call
+      - define: end of discovery → start of scaffold.js
+        (includes LLM thinking time composing the JSON + define.js validation)
+      - generate: scaffold.js start → deploy start (includes resolve-icons)
+      - deploy: createInterface / updateInterface call → end
+
+    The key insight: "define" includes LLM generation time (the gap between the
+    last discovery call and scaffold), not just the define.js execution. Previously
+    we measured start-to-start which attributed LLM thinking time to discovery.
 
     Returns a dict with phase durations in seconds, or None for phases not detected.
     """
@@ -283,7 +288,7 @@ def extract_phase_timings(tool_calls):
                        "mcp__appian__listRecordTypeRelationships", "mcp__appian__listRecordTypeFields",
                        "mcp__appian__listRecordData", "mcp__appian__listApplications"}
 
-    # Find discovery phase
+    # Find discovery phase (first call → last call)
     disc_start = None
     disc_end = None
     for tc in tool_calls:
@@ -294,34 +299,25 @@ def extract_phase_timings(tool_calls):
                     disc_start = ts
                 disc_end = ts
 
-    # Find definition write
-    define_start = None
-    for tc in tool_calls:
-        name = tc["name"]
-        inp = tc.get("input") or {}
-        is_define = False
-        if name == "Write":
-            fp = (inp.get("file_path") or "").lower()
-            if ".json" in fp and ("def" in fp or "definition" in fp):
-                is_define = True
-        elif name == "Bash":
-            cmd = inp.get("command") or ""
-            if "define.js" in cmd:
-                is_define = True
-            elif ".json" in cmd and ("def" in cmd.lower() or "definition" in cmd.lower()):
-                is_define = True
-        if is_define and define_start is None:
-            define_start = parse_ts(tc["timestamp"])
-
-    # Find generate phase — scaffold.js and resolve-icons.js
+    # Find generate phase start — scaffold.js (or combined scaffold+validate bash)
     gen_start = None
+    for tc in tool_calls:
+        if tc["name"] == "Bash":
+            cmd = (tc.get("input") or {}).get("command") or ""
+            if "scaffold.js" in cmd:
+                ts = parse_ts(tc["timestamp"])
+                if ts and gen_start is None:
+                    gen_start = ts
+
+    # Find generate phase end — last of scaffold.js / resolve-icons.js calls
+    gen_end = None
     for tc in tool_calls:
         if tc["name"] == "Bash":
             cmd = (tc.get("input") or {}).get("command") or ""
             if "scaffold.js" in cmd or "resolve-icons.js" in cmd:
                 ts = parse_ts(tc["timestamp"])
-                if ts and gen_start is None:
-                    gen_start = ts
+                if ts:
+                    gen_end = ts
 
     # Find deploy phase — createInterface / updateInterface
     deploy_start = None
@@ -331,28 +327,32 @@ def extract_phase_timings(tool_calls):
             if ts and deploy_start is None:
                 deploy_start = ts
 
-    # Build ordered timestamps for duration calculation
-    timestamps = []
-    if disc_start:
-        timestamps.append(("discovery", disc_start))
-    if define_start:
-        timestamps.append(("define", define_start))
-    if gen_start:
-        timestamps.append(("generate", gen_start))
-    if deploy_start:
-        timestamps.append(("deploy", deploy_start))
+    # Compute durations using boundary-based measurement:
+    # - discovery = disc_start → disc_end
+    # - define = disc_end → gen_start (LLM composing JSON + define.js validation)
+    # - generate = gen_start → deploy_start (scaffold + resolve-icons)
+    # - deploy = deploy_start → end (filled by caller from total duration)
 
-    timestamps.sort(key=lambda x: x[1])
+    if disc_start and disc_end:
+        phases["discovery"] = round((disc_end - disc_start).total_seconds(), 1)
 
-    for i, (phase, start) in enumerate(timestamps):
-        if i + 1 < len(timestamps):
-            next_start = timestamps[i + 1][1]
-            phases[phase] = round((next_start - start).total_seconds(), 1)
-        else:
-            phases[phase] = None  # last phase — filled from total later
+    # "define" = gap between last discovery call and scaffold start.
+    # This captures: LLM thinking, Write calls, define.js --write, retries.
+    define_anchor = disc_end if disc_end else disc_start
+    if define_anchor and gen_start:
+        phases["define"] = round((gen_start - define_anchor).total_seconds(), 1)
+    elif define_anchor and deploy_start and not gen_start:
+        # No scaffold detected (unusual) — define runs to deploy
+        phases["define"] = round((deploy_start - define_anchor).total_seconds(), 1)
 
-    first_phase_ts = timestamps[0][1] if timestamps else None
-    last_phase_ts = timestamps[-1][1] if timestamps else None
+    if gen_start and deploy_start:
+        phases["generate"] = round((deploy_start - gen_start).total_seconds(), 1)
+
+    # deploy duration filled by caller (needs total run time)
+    # phases["deploy"] = None
+
+    first_phase_ts = disc_start or gen_start or deploy_start
+    last_phase_ts = deploy_start or gen_end or gen_start or disc_end
     return phases, first_phase_ts, last_phase_ts
 
 
@@ -396,8 +396,10 @@ def run_one(test, args, repo_root, log_dir, run_tag):
         tool_calls, tool_errors, final_result = extract_signals(stdout)
         status = heuristic_grade(tool_calls, tool_errors, final_result, returncode)
         phase_timings, phase_first_ts, phase_last_ts = extract_phase_timings(tool_calls)
-        # Fill in the last phase duration as remainder
-        if phase_last_ts and phase_first_ts:
+        # Fill in the deploy phase as remainder of total duration minus other phases.
+        # deploy_start → end isn't directly measurable from tool calls alone (we don't
+        # know when the response came back), so we use: total - (startup + other phases).
+        if phase_first_ts and phase_timings.get("deploy") is None:
             from datetime import datetime
             first_tool_ts = None
             for tc in tool_calls:
@@ -408,12 +410,13 @@ def run_one(test, args, repo_root, log_dir, run_tag):
                     except (ValueError, TypeError):
                         pass
                     break
-            if first_tool_ts and phase_last_ts:
+            if first_tool_ts:
+                # Time before the first pipeline-relevant tool call (startup/skill loading)
+                startup = (phase_first_ts - first_tool_ts).total_seconds()
                 accounted = sum(v for v in phase_timings.values() if v is not None)
-                pipeline_duration = duration - (phase_first_ts - first_tool_ts).total_seconds()
-                last_phase = [k for k, v in phase_timings.items() if v is None]
-                if last_phase and pipeline_duration > accounted:
-                    phase_timings[last_phase[0]] = round(pipeline_duration - accounted, 1)
+                deploy_est = duration - startup - accounted
+                if deploy_est > 0:
+                    phase_timings["deploy"] = round(deploy_est, 1)
 
     timing_parts = []
     for phase in ("discovery", "define", "generate", "deploy"):
