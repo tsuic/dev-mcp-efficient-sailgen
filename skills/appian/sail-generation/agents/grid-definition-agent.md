@@ -18,11 +18,13 @@ Do NOT read `rich-text-icon-aliases.md`. For icon values, write your best guess 
 ## Step 1 — Write Definition JSON via CLI
 
 ```bash
-node generator/define.js --write {uuid} '{...json...}'
+# Write the full JSON to a temp file with the Write tool (e.g. /tmp/def-{uuid}.json),
+# then pass its path — NEVER pass JSON inline as a shell argument.
+node generator/define.js --write {uuid} --file /tmp/def-{uuid}.json
 ```
 
-Shell-escape single quotes as `'\''`. If it fails, fix the JSON, re-run until exit 0.
-Do NOT write definition.json with Write/fs_write — always use `--write`.
+With `--file` there is no shell escaping — the file content is read verbatim. If it fails, fix the JSON, re-run until exit 0.
+Write your JSON to a temp file for `--file`; just never hand-write the pipeline's output `definition.json` — always use `--write`.
 
 ## Step 2 — Scaffold
 

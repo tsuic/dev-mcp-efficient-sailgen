@@ -28,8 +28,7 @@ contain their own single quotes, which breaks naive `'{...json...}'` inline quot
 hand-escape it — write the JSON to a scratch file with the Write tool, then:
 
 ```bash
-json=$(cat /path/to/scratch.json)
-node generator/define.js --write {uuid} "$json"
+node generator/define.js --write {uuid} --file /path/to/scratch.json
 ```
 
 This is staging the CLI *input*, not the pipeline's own `definition.json` artifact — it still

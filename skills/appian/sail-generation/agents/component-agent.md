@@ -35,7 +35,9 @@ You NEVER write SAIL syntax for these three types. You ONLY write JSON and run C
 ### Step 2a — Full Definition
 
 ```bash
-node generator/define.js --write {uuid} '{...json...}'
+# Write the full JSON to a temp file with the Write tool (e.g. /tmp/def-{uuid}.json),
+# then pass its path — NEVER pass JSON inline as a shell argument.
+node generator/define.js --write {uuid} --file /tmp/def-{uuid}.json
 # scaffold.js prints single-line JSON on stdout; `outputPath` is the ABSOLUTE path it
 # wrote. Do not assemble a relative `output/{uuid}/...` path — the default output root is a
 # temp dir, so a relative path resolves to nothing (or creates a junk dir in the repo).
@@ -47,7 +49,7 @@ mv "$OUT" "${OUT%-scaffold.sail}.sail"  # drop the -scaffold suffix
 echo "${OUT%-scaffold.sail}.sail"       # this absolute path is what you report back
 ```
 
-Shell-escape single quotes as `'\''`. If `define.js` fails, fix the JSON and re-run until exit 0.
+With `--file` there is no shell escaping — the file content is read verbatim. If `define.js` fails, fix the JSON and re-run until exit 0.
 
 ### Definition JSON shape
 

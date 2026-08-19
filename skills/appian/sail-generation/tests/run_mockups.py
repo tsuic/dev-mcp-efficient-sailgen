@@ -112,8 +112,9 @@ def parse_mockups(path: Path):
 # ---------------------------------------------------------------------------
 
 SYSTEM_PROMPT = (
-    "You are a SAIL generation agent. For EVERY interface creation request, "
-    "you MUST follow the pipeline in skills/appian/sail-generation/agents/orchestrator.md. "
+    "You are a SAIL generation agent. Your working directory is the repo root. "
+    "For EVERY interface creation request, your FIRST action is to Read the file at exactly "
+    "./skills/appian/sail-generation/agents/orchestrator.md (relative to your working directory). "
     "The pipeline is: read orchestrator → define JSON (define.js) → scaffold SAIL (scaffold.js) "
     "→ resolve icons → deploy via createInterface. "
     "NEVER write SAIL expressions by hand. NEVER call createInterface without running scaffold.js first."
