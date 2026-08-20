@@ -1415,6 +1415,147 @@ function validateItemFieldsMapping(itemFields, context, errors) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Form/Wizard dataBinding — validates the "dataBinding" field on form/wizard
+// definitions for live-data forms that bind to ri!record[...] instead of local!.
+// ---------------------------------------------------------------------------
+function validateFormWizardDataBinding(db, errors) {
+  const context = "dataBinding";
+  if (!db.recordType || typeof db.recordType !== "string") {
+    errors.push(`${context}: "recordType" is required and must be a non-empty string (full record type reference)`);
+  } else {
+    validateFieldRefShape(db.recordType, `${context}.recordType`, errors);
+  }
+  if (!db.ruleInputName || typeof db.ruleInputName !== "string") {
+    errors.push(`${context}: "ruleInputName" is required (convention: "record")`);
+  }
+
+  // fields: non-empty array of field reference strings
+  if (!Array.isArray(db.fields) || db.fields.length === 0) {
+    errors.push(`${context}.fields: required — a non-empty array of field reference strings`);
+  } else {
+    db.fields.forEach((f, fi) => {
+      const fc = `${context}.fields[${fi}]`;
+      if (!f || typeof f !== "string") {
+        errors.push(`${fc}: must be a non-empty field reference string`);
+      } else {
+        validateFieldRefShape(f, fc, errors);
+      }
+    });
+  }
+
+  // lookups: optional array — each defines a dropdown query source
+  const seenLocalNames = new Set();
+  if (db.lookups !== undefined) {
+    if (!Array.isArray(db.lookups)) {
+      errors.push(`${context}.lookups: must be an array`);
+    } else {
+      db.lookups.forEach((lk, li) => {
+        const lc = `${context}.lookups[${li}]`;
+        if (!lk.fieldRef || typeof lk.fieldRef !== "string") {
+          errors.push(`${lc}: "fieldRef" is required (FK field reference on the base record type)`);
+        } else {
+          validateFieldRefShape(lk.fieldRef, `${lc}.fieldRef`, errors);
+          // fieldRef should also be in db.fields
+          if (Array.isArray(db.fields) && !db.fields.includes(lk.fieldRef)) {
+            errors.push(`${lc}: "fieldRef" ("${lk.fieldRef}") must also appear in dataBinding.fields`);
+          }
+        }
+        if (!lk.lookupRecordType || typeof lk.lookupRecordType !== "string") {
+          errors.push(`${lc}: "lookupRecordType" is required (the related record type to query)`);
+        } else {
+          validateFieldRefShape(lk.lookupRecordType, `${lc}.lookupRecordType`, errors);
+        }
+        if (!lk.labelField || typeof lk.labelField !== "string") {
+          errors.push(`${lc}: "labelField" is required (display field on the lookup record type)`);
+        } else {
+          validateFieldRefShape(lk.labelField, `${lc}.labelField`, errors);
+        }
+        if (!lk.valueField || typeof lk.valueField !== "string") {
+          errors.push(`${lc}: "valueField" is required (PK/value field on the lookup record type)`);
+        } else {
+          validateFieldRefShape(lk.valueField, `${lc}.valueField`, errors);
+        }
+        if (!lk.localName || !/^[a-zA-Z][a-zA-Z0-9]*$/.test(lk.localName)) {
+          errors.push(`${lc}: "localName" is required and must be a camelCase identifier`);
+        } else if (seenLocalNames.has(lk.localName)) {
+          errors.push(`${lc}: duplicate "localName" "${lk.localName}"`);
+        } else {
+          seenLocalNames.add(lk.localName);
+        }
+      });
+    }
+  }
+
+  // relatedFields: optional array — each defines a relationship-path binding
+  if (db.relatedFields !== undefined) {
+    if (!Array.isArray(db.relatedFields)) {
+      errors.push(`${context}.relatedFields: must be an array`);
+    } else {
+      db.relatedFields.forEach((rf, ri) => {
+        const rc = `${context}.relatedFields[${ri}]`;
+        if (!rf.relationship || typeof rf.relationship !== "string") {
+          errors.push(`${rc}: "relationship" is required (relationship reference on the base record type)`);
+        } else {
+          validateFieldRefShape(rf.relationship, `${rc}.relationship`, errors);
+        }
+        if (!rf.field || typeof rf.field !== "string") {
+          errors.push(`${rc}: "field" is required (full relationship-qualified field path)`);
+        } else {
+          validateFieldRefShape(rf.field, `${rc}.field`, errors);
+        }
+        if (!rf.localName || !/^[a-zA-Z][a-zA-Z0-9]*$/.test(rf.localName)) {
+          errors.push(`${rc}: "localName" is required and must be a camelCase identifier`);
+        } else if (seenLocalNames.has(rf.localName)) {
+          errors.push(`${rc}: duplicate "localName" "${rf.localName}"`);
+        } else {
+          seenLocalNames.add(rf.localName);
+        }
+      });
+    }
+  }
+
+  // todos: optional array of strings
+  if (db.todos !== undefined) {
+    if (!Array.isArray(db.todos)) {
+      errors.push(`${context}.todos: must be an array of strings`);
+    } else {
+      db.todos.forEach((t, ti) => {
+        if (!t || typeof t !== "string") {
+          errors.push(`${context}.todos[${ti}]: must be a non-empty string`);
+        }
+      });
+    }
+  }
+}
+
+/**
+ * Collects the set of valid fieldRef values for form/wizard fields:
+ * - Every string in dataBinding.fields
+ * - Every relatedFields[].field
+ */
+function collectFormDataBindingFieldRefs(db) {
+  const refs = new Set();
+  if (Array.isArray(db.fields)) {
+    db.fields.forEach((f) => { if (typeof f === "string" && f) refs.add(f); });
+  }
+  if (Array.isArray(db.relatedFields)) {
+    db.relatedFields.forEach((rf) => { if (rf && typeof rf.field === "string" && rf.field) refs.add(rf.field); });
+  }
+  return refs;
+}
+
+/**
+ * Collects valid lookupRef values (localName from each lookup entry).
+ */
+function collectFormLookupRefs(db) {
+  const refs = new Set();
+  if (Array.isArray(db.lookups)) {
+    db.lookups.forEach((lk) => { if (lk && typeof lk.localName === "string" && lk.localName) refs.add(lk.localName); });
+  }
+  return refs;
+}
+
 function validateRecordViewDefinition(def, errors) {
   // Skeleton record-views only need title/entityName/recordName — no
   // keyAttributes/sections content required yet.
@@ -1649,6 +1790,41 @@ function validateLayoutDefinition(def, errors) {
   validateLayoutTreeRecordActions(def.root, "root", false, errors);
 }
 
+/**
+ * Cross-check fieldRef and lookupRef on a form/wizard field against the dataBinding.
+ * Called per-field during form/wizard validation when dataBinding is present.
+ */
+function validateFieldRefAndLookupRef(field, context, hasDataBinding, validFieldRefs, validLookupRefs, errors) {
+  if (field.fieldRef !== undefined) {
+    if (typeof field.fieldRef !== "string" || !field.fieldRef) {
+      errors.push(`${context}.fieldRef: must be a non-empty string`);
+    } else if (!hasDataBinding) {
+      errors.push(`${context}.fieldRef: requires "dataBinding" to be present on this definition`);
+    } else if (!validFieldRefs.has(field.fieldRef)) {
+      errors.push(`${context}.fieldRef: "${field.fieldRef}" does not match any entry in dataBinding.fields or dataBinding.relatedFields[].field`);
+    }
+  }
+  if (field.lookupRef !== undefined) {
+    if (typeof field.lookupRef !== "string" || !field.lookupRef) {
+      errors.push(`${context}.lookupRef: must be a non-empty string`);
+    } else if (!hasDataBinding) {
+      errors.push(`${context}.lookupRef: requires "dataBinding" to be present on this definition`);
+    } else if (!validLookupRefs.has(field.lookupRef)) {
+      errors.push(`${context}.lookupRef: "${field.lookupRef}" does not match any dataBinding.lookups[].localName`);
+    }
+    // lookupRef is only valid on dropdown (or radio) type fields
+    if (field.type && !["dropdown", "radio"].includes(field.type)) {
+      errors.push(`${context}.lookupRef: only valid on "dropdown" or "radio" type fields, got type "${field.type}"`);
+    }
+  }
+  // When lookupRef is present, choices are not required
+  if (field.lookupRef && ["dropdown", "radio", "cardchoice", "checkbox"].includes(field.type)) {
+    // Override the existing validation error for missing choices — it's fine
+    // This is handled implicitly because validateRows checks choices before us,
+    // so we need to relax that. Actually we handle this by modifying validateRows below.
+  }
+}
+
 function validateDefinition(def) {
   const errors = [];
 
@@ -1692,14 +1868,17 @@ function validateDefinition(def) {
           errors.push(`${fc}: "type" must be one of [${VALID_TYPES.join(", ")}], got: ${JSON.stringify(field.type)}`);
         }
         if (["dropdown", "radio", "cardchoice", "checkbox"].includes(field.type)) {
-          if (!Array.isArray(field.choices) || field.choices.length === 0) {
-            errors.push(`${fc}: type "${field.type}" requires non-empty "choices" array`);
-          } else {
-            field.choices.forEach((c, ci) => {
-              if (!c.label || c.value === undefined || c.value === null || c.value === "") {
-                errors.push(`${fc} choices[${ci}]: each choice needs non-empty "label" and "value"`);
-              }
-            });
+          // When lookupRef is present, choices come from the query — not required in JSON
+          if (!field.lookupRef) {
+            if (!Array.isArray(field.choices) || field.choices.length === 0) {
+              errors.push(`${fc}: type "${field.type}" requires non-empty "choices" array (or "lookupRef" for live data forms)`);
+            } else {
+              field.choices.forEach((c, ci) => {
+                if (!c.label || c.value === undefined || c.value === null || c.value === "") {
+                  errors.push(`${fc} choices[${ci}]: each choice needs non-empty "label" and "value"`);
+                }
+              });
+            }
           }
         }
         if (typeof field.width !== "undefined" && (typeof field.width !== "number" || field.width < 1 || field.width > 10)) {
@@ -1710,6 +1889,14 @@ function validateDefinition(def) {
   }
 
   if (def.type === "wizard") {
+    // Validate dataBinding if present (live wizard)
+    const hasFormDataBinding = def.dataBinding && typeof def.dataBinding === "object";
+    if (hasFormDataBinding) {
+      validateFormWizardDataBinding(def.dataBinding, errors);
+    }
+    const wizardFieldRefs = hasFormDataBinding ? collectFormDataBindingFieldRefs(def.dataBinding) : null;
+    const wizardLookupRefs = hasFormDataBinding ? collectFormLookupRefs(def.dataBinding) : null;
+
     if (!Array.isArray(def.steps) || def.steps.length < 2) {
       errors.push('"steps" must be an array with at least 2 steps for a wizard');
     } else {
@@ -1717,11 +1904,28 @@ function validateDefinition(def) {
         const sc = `steps[${si}] ("${step.label || "?"}")`;
         if (!step.label) errors.push(`${sc}: "label" is required`);
         validateRows(step.rows || [], sc);
+        // Cross-check fieldRef/lookupRef on each field when dataBinding present
+        if (hasFormDataBinding && Array.isArray(step.rows)) {
+          step.rows.forEach((row, ri) => {
+            (row.fields || []).forEach((field, fi) => {
+              const fc = `${sc} row[${ri}].fields[${fi}]`;
+              validateFieldRefAndLookupRef(field, fc, hasFormDataBinding, wizardFieldRefs, wizardLookupRefs, errors);
+            });
+          });
+        }
       });
     }
   }
 
   if (def.type === "form") {
+    // Validate dataBinding if present (live form)
+    const hasFormDataBinding = def.dataBinding && typeof def.dataBinding === "object";
+    if (hasFormDataBinding) {
+      validateFormWizardDataBinding(def.dataBinding, errors);
+    }
+    const formFieldRefs = hasFormDataBinding ? collectFormDataBindingFieldRefs(def.dataBinding) : null;
+    const formLookupRefs = hasFormDataBinding ? collectFormLookupRefs(def.dataBinding) : null;
+
     if (!Array.isArray(def.sections) || def.sections.length === 0) {
       errors.push('"sections" must be a non-empty array for a form');
     } else {
@@ -1729,6 +1933,15 @@ function validateDefinition(def) {
         const sc = `sections[${si}] ("${section.label || "?"}")`;
         if (!section.label) errors.push(`${sc}: "label" is required`);
         validateRows(section.rows || [], sc);
+        // Cross-check fieldRef/lookupRef on each field when dataBinding present
+        if (hasFormDataBinding && Array.isArray(section.rows)) {
+          section.rows.forEach((row, ri) => {
+            (row.fields || []).forEach((field, fi) => {
+              const fc = `${sc} row[${ri}].fields[${fi}]`;
+              validateFieldRefAndLookupRef(field, fc, hasFormDataBinding, formFieldRefs, formLookupRefs, errors);
+            });
+          });
+        }
       });
     }
   }
@@ -1919,6 +2132,9 @@ module.exports = {
   validateLayoutTreeNode,
   validateDataBindingBlock,
   validateItemFieldsMapping,
+  validateFormWizardDataBinding,
+  collectFormDataBindingFieldRefs,
+  collectFormLookupRefs,
 };
 
 // ---------------------------------------------------------------------------

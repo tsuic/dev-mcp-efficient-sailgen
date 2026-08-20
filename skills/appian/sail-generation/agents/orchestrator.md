@@ -44,6 +44,13 @@ tool calls. Never write shell scripts, Node.js code, or `claude mcp call ...` to
 4. `getRecordType(uuid)` × N — each related record type whose fields you reference
 5. `listRecordData(uuid)` × M — small lookup tables to get enum values for filters
 
+**Minimum discovery for a live form/wizard:**
+1. `listApplications(query)` — get app UUID
+2. `listRecordTypes(appUuid)` — find the target record type
+3. `getRecordType(uuid)` — target record type (fields + relationships)
+4. `getRecordType(uuid)` × N — each related lookup record type to get its `id`/`label` fields (for dropdown choices)
+5. Optionally `listRecordData(uuid)` × M — small lookup tables to confirm valid FK values
+
 **Resolving "display name" / "label" fields:** When the user asks for a field's
 display name (e.g. "status display name", "priority label", "category name"), that
 means the RELATIONSHIP LOOKUP field — not the raw FK integer. For every foreign-key
@@ -171,7 +178,9 @@ All commands run from: skills/appian/sail-generation/
 | Request type | Agent file (under `skills/appian/sail-generation/agents/`) |
 |---|---|
 | wizard | `wizard-definition-agent.md` → (Pass 3) `wizard-sail-agent.md` |
+| wizard (live) | `live-wizard-definition-agent.md` → (Pass 3) `wizard-sail-agent.md` |
 | form | `form-definition-agent.md` → (Pass 3) `form-sail-agent.md` |
+| form (live) | `live-form-definition-agent.md` → (Pass 3) `form-sail-agent.md` |
 | grid | `grid-definition-agent.md` → (Pass 3) `display-agent.md` |
 | dashboard | `dashboard-definition-agent.md` → (Pass 3) `display-agent.md` |
 | dashboard (live) | `live-dashboard-definition-agent.md` → (Pass 3) `display-agent.md` |
@@ -185,6 +194,14 @@ All commands run from: skills/appian/sail-generation/
 **Live variant selection:** Use the `(live)` variant when the dispatch brief contains
 Concrete Identifiers (record type UUIDs, field UUIDs, relationship UUIDs). If the brief
 only has entity names and inferred fields without UUIDs, use the standard mockup agent.
+This applies uniformly to dashboards, record-views, forms, and wizards.
+
+**Live form/wizard lookup resolution:** For every FK field on the target record type
+that has a many-to-one relationship to a lookup table (e.g. `statusId` → Status,
+`departmentId` → Department), resolve the lookup record type's `id` and `label`/`name`
+fields. Include these in the brief as lookup entries: `{fieldRef, lookupRecordType,
+labelField, valueField, localName}`. The definition agent uses these to generate
+dropdown fields backed by `a!queryRecordType()` instead of static choices.
 
 **Dynamic page titles:** When the user says the page title should be a field from the
 record (e.g. "title should be the ticket title"), pass the field reference in the brief
@@ -242,6 +259,18 @@ createInterface(name: "...", appUuid: "...", expressionFilePath: "...",
 The `type` value is the record type's `typeReference` string from the `getRecordType`
 response (e.g. `"recordType!{uuid}ITSM Ticket"`). Without this input declaration,
 Appian rejects the expression with "Unresolved reference(s): ri!record".
+
+For live form/wizard interfaces (contain `ri!record`, `ri!isUpdate`, `ri!cancel`):
+```
+createInterface(name: "...", appUuid: "...", expressionFilePath: "...",
+  inputs: [
+    { name: "record", type: "<typeReference from getRecordType>" },
+    { name: "isUpdate", type: "Boolean" },
+    { name: "cancel", type: "Boolean" }
+  ])
+```
+Same `typeReference` rule applies. All three inputs are required for the form/wizard
+to be usable as a process start form or task form in a record action.
 
 For standalone interfaces (name starts with `TEST_` or prompt says "no app" / "standalone"):
 ```

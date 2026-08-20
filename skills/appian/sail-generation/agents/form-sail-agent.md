@@ -13,6 +13,20 @@ Edit the existing `.sail` file to add ONLY:
 - Domain-specific banners or warning cards
 - Edit-mode pre-population of `local!` vars with sample data
 
+## Live Form Note
+
+When editing a **live-data form** (scaffolded from `live-form-definition-agent.md`),
+the file uses `ri!record[recordType!{uuid}X.fields.{uuid}fieldName]` instead of `local!`
+variables. Key differences for your edits:
+
+- **Field references:** Use `ri!record['recordType!...fields...']` in `showWhen` conditions,
+  not `local!fieldName`. The scaffold comment header lists the rule inputs.
+- **Control params:** `ri!isUpdate` and `ri!cancel` are real rule inputs — not `local!`.
+- **Lookup locals:** `local!statusOptions` (etc.) are the only `local!` vars present — they
+  hold query results for dropdown choices. Do not re-declare them.
+- **Null-safety in conditions:** Use the same `if(a!isNotNullOrEmpty(...), comparison, false)`
+  pattern, but reference the `ri!record[...]` path instead of a `local!` var.
+
 ## What You Do NOT Do
 - ❌ NEVER rewrite fields — they're already correct from the scaffold
 - ❌ NEVER change columnsLayouts or width values
@@ -27,6 +41,7 @@ Edit the existing `.sail` file to add ONLY:
 ## Form-Specific SAIL Rules
 
 - `local!isUpdate` and `local!cancel` already declared by scaffold — use them, don't redeclare
+  (in live forms: `ri!isUpdate` and `ri!cancel` are rule inputs instead)
 - Submit button label already handles `isUpdate` — don't duplicate
 - Card + Section structure already correct from scaffold — add within existing sections
 
@@ -49,7 +64,7 @@ Edit the existing `.sail` file to add ONLY:
 - `regexmatch()`, `regex()` → `find()`, `search()`, `contains()`
 - `a or b`, `a and b` → `or(a,b)`, `and(a,b)`
 - `value: null, saveInto: null` → invalid
-- `ri!` or `recordtype!` → `local!` only
+- `ri!` or `recordtype!` → `local!` only (EXCEPT in live-data forms where `ri!record`, `ri!isUpdate`, `ri!cancel` are the correct pattern)
 - Runtime generators in sample data → hardcode
 - `radioButtonField.choiceLayout: "HORIZONTAL"` → `"COMPACT"` or `"STACKED"`
 - `a!textField inputPurpose: "NUMBER"` → `a!integerField`

@@ -101,3 +101,89 @@
     - user fields (assignedTo, createdBy, modifiedBy)
     - real UUID references (record type, fields, relationships)
     - plain fieldRef on key attributes and sections
+
+# -----------------------------------------------------------------------------
+# FORM tests — live data forms that bind to ri!record[...] for create/edit
+# -----------------------------------------------------------------------------
+
+- id: live-form-01-itsm-ticket-create
+  type: form
+  app: IT Service Management
+  prompt: >
+    In the "IT Service Management" app, create an interface called
+    TEST_LIVE_ITSM_Create_Ticket — a create/edit form for the
+    ITSM Ticket record type. The form should support both creating new
+    tickets and editing existing ones (driven by ri!isUpdate).
+
+    Section "Ticket Details":
+      - Title (required, text)
+      - Description (paragraph, full width)
+
+    Section "Classification":
+      - Status (dropdown from ITSM Status lookup table — show labels, save IDs)
+      - Priority (dropdown from ITSM Priority lookup table — show labels, save IDs)
+      - Category (dropdown from ITSM Category lookup table — show labels, save IDs)
+
+    Section "Assignment":
+      - Assigned To (user picker)
+
+    The form should use ri!record typed to ITSM Ticket, with ri!isUpdate
+    and ri!cancel as rule inputs. Dropdown fields should query their
+    respective lookup tables via a!queryRecordType() instead of hardcoding choices.
+  covers:
+    - live form (live variant agent)
+    - ri!record[recordType!...fields...] value/saveInto binding
+    - ri!isUpdate for conditional title and button label
+    - ri!cancel for cancel button
+    - lookup query prologues (a!queryRecordType for Status, Priority, Category)
+    - dropdown fields bound to lookup data (choiceLabels/choiceValues from query)
+    - user picker field
+    - paragraph field (full width, single-field row)
+    - multiple sections (Ticket Details, Classification, Assignment)
+    - required field validation
+    - real UUID references (ITSM Ticket fields, Status/Priority/Category record types)
+    - createInterface with inputs [record, isUpdate, cancel]
+
+# -----------------------------------------------------------------------------
+# WIZARD tests — live data wizards with multi-step ri!record binding
+# -----------------------------------------------------------------------------
+
+- id: live-wizard-01-itsm-ticket-submit
+  type: wizard
+  app: IT Service Management
+  prompt: >
+    In the "IT Service Management" app, create an interface called
+    TEST_LIVE_ITSM_Submit_Ticket — a multi-step wizard for employees to
+    submit a new IT support ticket. The wizard should use ri!record typed
+    to ITSM Ticket with ri!isUpdate and ri!cancel rule inputs.
+
+    Step 1 "Describe Issue":
+      - Title (required, text)
+      - Description (paragraph, full width)
+      - Category (required, dropdown from ITSM Category lookup — show labels, save IDs)
+
+    Step 2 "Priority & Assignment":
+      - Priority (required, dropdown from ITSM Priority lookup — show labels, save IDs)
+      - Assigned To (user picker — the IT agent to route this to)
+
+    Step 3 "Review & Submit":
+      - Auto-generated review summary showing all entered fields
+
+    Dropdown fields should query their respective lookup tables via
+    a!queryRecordType() instead of hardcoding choices. The wizard should
+    disable the Next button on each step when required fields are empty
+    (using the ri!record field paths).
+  covers:
+    - live wizard (live variant agent)
+    - ri!record[recordType!...fields...] value/saveInto binding across steps
+    - ri!isUpdate for conditional title and button label
+    - ri!cancel for cancel button
+    - lookup query prologues (a!queryRecordType for Category, Priority)
+    - dropdown fields bound to lookup data across different wizard steps
+    - user picker field
+    - paragraph field (full width)
+    - disableNextButton derived from ri!record[...] required fields
+    - auto-generated review step showing ri!record values
+    - multiple steps with distinct field groupings
+    - real UUID references (ITSM Ticket fields, Category/Priority record types)
+    - createInterface with inputs [record, isUpdate, cancel]

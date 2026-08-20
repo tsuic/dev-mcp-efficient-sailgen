@@ -88,9 +88,12 @@ function runFromDefinition(uuid) {
 
   // Persist a co-located record-mode marker so the validator (a separate
   // process/package) knows whether this file is legitimately record-backed.
-  // Record-view carries `dataBinding`, dashboard carries `dataSource`.
+  // Record-view carries `dataBinding`, dashboard carries `dataSource`,
+  // form/wizard carry `dataBinding` for live-data forms.
   const isRecordMode = (type === "record-view" && !!def.dataBinding) ||
-                       (type === "dashboard" && !!def.dataSource);
+                       (type === "dashboard" && !!def.dataSource) ||
+                       (type === "form" && !!def.dataBinding) ||
+                       (type === "wizard" && !!def.dataBinding);
   const recordModeMarkerPath = path.join(outDir, "record-mode.json");
   fs.writeFileSync(recordModeMarkerPath, JSON.stringify({ isRecordMode }, null, 2), "utf-8");
 

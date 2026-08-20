@@ -667,6 +667,214 @@ ${stepsSail}
 }
 
 // ---------------------------------------------------------------------------
+// Live data-binding render — ri!record[...] pattern for wizards
+// ---------------------------------------------------------------------------
+
+function renderLiveFromDefinition(def) {
+  const { title, entityName, steps, headerIcon, headerSubtitle, dataBinding } = def;
+  const theme = resolveTheme(def.theme);
+  const { renderLiveField } = require("./form");
+  const riName = dataBinding.ruleInputName || "record";
+
+  // Build lookup query prologues
+  const lookupDecls = (dataBinding.lookups || []).map((lk) => {
+    return [
+      `  local!${lk.localName}: a!queryRecordType(`,
+      `    recordType: '${lk.lookupRecordType}',`,
+      `    fields: {`,
+      `      '${lk.labelField}',`,
+      `      '${lk.valueField}'`,
+      `    },`,
+      `    pagingInfo: a!pagingInfo(startIndex: 1, batchSize: 500)`,
+      `  ).data,`,
+    ].join("\n");
+  });
+
+  const varDecls = [
+    ...(lookupDecls.length > 0
+      ? [`  /* ── Lookup query prologues ── */`, ...lookupDecls, ``]
+      : []),
+  ].join("\n");
+
+  // TODO comments for dataBinding.todos
+  const todoComments = (dataBinding.todos || []).length > 0
+    ? `\n${dataBinding.todos.map((t) => ` * TODO: ${t}`).join("\n")}\n`
+    : "";
+
+  // Step indicator style
+  const style = steps.length <= 4 ? "CHEVRON_HORIZONTAL" : "DOT_VERTICAL";
+  const subtitle = headerSubtitle || `Complete all steps to submit your ${entityName.toLowerCase()}.`;
+
+  // Render each step
+  const stepsSail = steps.map((step) => {
+    let contentSail;
+    if (isReviewStep(step)) {
+      contentSail = renderLiveReviewContents(steps, "          ", dataBinding, riName);
+    } else {
+      contentSail = renderLiveStepContents(step.rows, "          ", dataBinding, riName);
+    }
+    const instructions = step.instructions
+      ? `\n        instructions: "${step.instructions.replace(/"/g, '""')}",`
+      : "";
+    // disableNextButton for live wizards — check required fields on ri!record
+    const disableNext = isReviewStep(step) ? "" : renderLiveDisableNextButton(step, "        ", dataBinding, riName);
+    return [
+      `      a!wizardStep(`,
+      `        label: "${step.label}",${instructions}${disableNext}`,
+      `        contents: {`,
+      `          a!cardLayout(`,
+      `            contents: {`,
+      contentSail,
+      `            },`,
+      `            style: "${theme.cardBg}",`,
+      `            showBorder: true(),`,
+      `            shape: "ROUNDED",`,
+      `            padding: "STANDARD",`,
+      `            marginBelow: "STANDARD"`,
+      `          )`,
+      `        }`,
+      `      )`,
+    ].join("\n");
+  }).join(",\n\n");
+
+  return `/*
+ * ${title}
+ * Live-data wizard — fields bind to ri!${riName}[recordType!...fields...]
+ * Generated from definition.json — edit definition.json to change structure.
+ *${todoComments} * Rule inputs: ${riName} (${dataBinding.recordType}), isUpdate (Boolean), cancel (Boolean)
+ */
+a!localVariables(
+${varDecls}
+  a!wizardLayout(
+    titleBar: a!headerTemplateFull(
+      title: if(a!defaultValue(ri!isUpdate, false()), "Update ${entityName}", "Create ${entityName}"),
+      secondaryText: "${subtitle}",
+      backgroundColor: "${theme.headerBg}",
+      titleColor: "${theme.titleColor}",
+      secondaryTextColor: "${theme.subtitleColor}"${headerIcon ? `,\n      stampIcon: "${headerIcon}",\n      stampColor: "${theme.stampContent}"` : ""}
+    ),
+    isTitleBarFixed: false(),
+    style: "${style}",
+    contentsWidth: "WIDE",
+    steps: {
+${stepsSail}
+    },
+    primaryButtons: {
+      a!buttonWidget(
+        label: if(a!defaultValue(ri!isUpdate, false()), "Save", "Submit"),
+        style: "SOLID",
+        color: "ACCENT",
+        submit: true(),
+        validate: true(),
+        loadingIndicator: true(),
+        showWhen: fv!isLastStep
+      )
+    },
+    secondaryButtons: {
+      a!buttonWidget(
+        label: "Cancel",
+        style: "LINK",
+        saveInto: a!save(ri!cancel, true()),
+        submit: true(),
+        validate: false()
+      )
+    }
+  )
+)`;
+}
+
+/**
+ * Renders step contents for a live wizard using ri!record[...] bindings.
+ */
+function renderLiveStepContents(rows, baseIndent, dataBinding, riName) {
+  if (!rows || rows.length === 0) {
+    return `${baseIndent}/* TODO: Add fields for this step */`;
+  }
+  const { renderLiveRow } = require("./form");
+  return rows.map((row) => renderLiveRow(row, baseIndent, dataBinding, riName)).join(",\n");
+}
+
+/**
+ * Renders the disableNextButton for a live wizard step.
+ * Uses a!isNullOrEmpty on the ri!record field reference for each required field.
+ */
+function renderLiveDisableNextButton(step, indent, dataBinding, riName) {
+  const vars = [];
+  for (const row of (step.rows || [])) {
+    for (const field of row.fields) {
+      if (field.required === true && !REQUIRED_GATE_EXCLUDED_TYPES.has(field.type)) {
+        const expr = field.fieldRef
+          ? `ri!${riName}['${field.fieldRef}']`
+          : `local!${toLocalVar(field.name).replace("local!", "")}`;
+        vars.push(expr);
+      }
+    }
+  }
+  if (vars.length === 0) return "";
+  const expr = vars.length === 1
+    ? `a!isNullOrEmpty(${vars[0]})`
+    : `or(${vars.map((v) => `a!isNullOrEmpty(${v})`).join(", ")})`;
+  return `\n${indent}disableNextButton: ${expr},`;
+}
+
+/**
+ * Renders the review step for a live wizard — shows field values from ri!record[...].
+ */
+function renderLiveReviewContents(steps, baseIndent, dataBinding, riName) {
+  const bi = baseIndent;
+  const sections = [];
+
+  for (const step of steps) {
+    if (isReviewStep(step)) continue;
+    if (!step.rows || step.rows.length === 0) continue;
+
+    const fields = [];
+    for (const row of step.rows) {
+      for (const field of row.fields) {
+        fields.push(field);
+      }
+    }
+    if (fields.length > 0) {
+      sections.push({ label: step.label, fields });
+    }
+  }
+
+  if (sections.length === 0) {
+    return `${bi}/* TODO: Add review content */`;
+  }
+
+  const sectionsSail = sections.map((section) => {
+    const fieldRows = section.fields.map((field) => {
+      const label = field.label || toTitleCase(field.name);
+      const valueExpr = field.fieldRef
+        ? `ri!${riName}['${field.fieldRef}']`
+        : `local!${toLocalVar(field.name).replace("local!", "")}`;
+      return [
+        `${bi}        a!richTextDisplayField(`,
+        `${bi}          labelPosition: "COLLAPSED",`,
+        `${bi}          value: {`,
+        `${bi}            a!richTextItem(text: "${label.replace(/"/g, '""')}: ", style: "STRONG"),`,
+        `${bi}            a!richTextItem(text: if(a!isNotNullOrEmpty(${valueExpr}), ${valueExpr}, char(8212)))`,
+        `${bi}          }`,
+        `${bi}        )`,
+      ].join("\n");
+    }).join(",\n");
+
+    return [
+      `${bi}    a!sectionLayout(`,
+      `${bi}      label: "${section.label.replace(/"/g, '""')}",`,
+      `${bi}      labelColor: "STANDARD",`,
+      `${bi}      contents: {`,
+      fieldRows,
+      `${bi}      }`,
+      `${bi}    )`,
+    ].join("\n");
+  }).join(",\n");
+
+  return sectionsSail;
+}
+
+// ---------------------------------------------------------------------------
 // Public API — called by scaffold.js
 // ---------------------------------------------------------------------------
 
@@ -680,6 +888,10 @@ function render(opts) {
       "Use the definition pipeline: node generator/define.js --write <uuid> '<json>' " +
       "then node generator/scaffold.js --from-definition <uuid>"
     );
+  }
+  // Dispatch to live renderer when dataBinding is present
+  if (opts.definition.dataBinding) {
+    return renderLiveFromDefinition(opts.definition);
   }
   return renderFromDefinition(opts.definition);
 }
