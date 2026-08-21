@@ -224,7 +224,7 @@
  *
  * "sections": ordered array — rendered top-to-bottom. Each section has a "type":
  *
- *   "kpis" — card group with 1–6 metric cards
+ *   "kpis" — card group with metric cards (typically 3–6)
  *     "items": array of { "label", "value", "sub", "icon"?, "color"? }
  *     "icon" must be a verified alias from rich-text-icon-aliases.md if present.
  *     "color" optional hex, defaults to palette rotation.
@@ -795,8 +795,8 @@ function validateDashboardDataSource(ds, errors) {
 }
 
 function validateKpisItems(items, context, errors, hasDataSource) {
-  if (!Array.isArray(items) || items.length === 0 || items.length > 6) {
-    errors.push(`${context}: "items" must be an array with 1-6 KPI entries`);
+  if (!Array.isArray(items) || items.length === 0) {
+    errors.push(`${context}: "items" must be a non-empty array of KPI entries`);
     return;
   }
   items.forEach((kpi, ki) => {

@@ -152,11 +152,13 @@ Prefer a hex color (e.g. `"#2C3E50"`) for every `tagColors` entry — it always 
 
 ## Section Types
 
-### `kpis` — Metric card group (1–6 cards)
+### `kpis` — Metric card group
 | Field | Required | Notes |
 |-------|----------|-------|
-| `items` | ✅ | Array of 1–6 KPI objects |
+| `items` | ✅ | Array of KPI objects (typically 3–6; more is fine when the request warrants it) |
 | `label` | Optional | Comment label for the section |
+
+**Single-section preference:** Put all KPIs in one `kpis` section unless the user explicitly requests separate groups. Multiple `kpis` sections render as separate `cardGroupLayout` blocks that won't align with each other — a 4+2 split looks visually broken compared to a single group of 6 that wraps naturally.
 
 Each KPI object:
 | Field | Required | Notes |
