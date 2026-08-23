@@ -62,9 +62,9 @@ createInterface(expressionFilePath: ".../{slug}.sail")     ← deploy to Appian 
 | record-view | record-view-definition-agent | Record detail display |
 | record-view (live) | live-record-view-definition-agent | Record view backed by real record types |
 | pane | pane-definition-agent | Master-detail split panels |
-| layout | layout-planner-agent | Recursive container/leaf pages |
+| layout | custom-ui-planner | Recursive container/leaf pages |
 | component | component-agent | Single bare component |
-| display | display-agent | Catch-all (hand-written SAIL) |
+| display | sail-coder | Catch-all (hand-written SAIL) |
 
 ## Directory Structure
 

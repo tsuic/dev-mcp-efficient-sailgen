@@ -181,15 +181,16 @@ All commands run from: skills/appian/sail-generation/
 | wizard (live) | `live-wizard-definition-agent.md` → (Pass 3) `wizard-sail-agent.md` |
 | form | `form-definition-agent.md` → (Pass 3) `form-sail-agent.md` |
 | form (live) | `live-form-definition-agent.md` → (Pass 3) `form-sail-agent.md` |
-| grid | `grid-definition-agent.md` → (Pass 3) `display-agent.md` |
-| dashboard | `dashboard-definition-agent.md` → (Pass 3) `display-agent.md` |
-| dashboard (live) | `live-dashboard-definition-agent.md` → (Pass 3) `display-agent.md` |
-| record-view | `record-view-definition-agent.md` → (Pass 3) `display-agent.md` |
-| record-view (live) | `live-record-view-definition-agent.md` → (Pass 3) `display-agent.md` |
+| grid | `grid-definition-agent.md` → (Pass 3) `sail-coder.md` |
+| grid (live) | `live-grid-definition-agent.md` → (Pass 3) `sail-coder.md` |
+| dashboard | `dashboard-definition-agent.md` → (Pass 3) `sail-coder.md` |
+| dashboard (live) | `live-dashboard-definition-agent.md` → (Pass 3) `sail-coder.md` |
+| record-view | `record-view-definition-agent.md` → (Pass 3) `sail-coder.md` |
+| record-view (live) | `live-record-view-definition-agent.md` → (Pass 3) `sail-coder.md` |
 | pane | `pane-definition-agent.md` → (Pass 3) `pane-sail-agent.md` |
-| layout | `layout-planner-agent.md` |
-| component | `component-agent.md` |
-| display | `display-agent.md` |
+| layout | `custom-ui-planner.md` |
+| component | `component-agent.md` → routes to `custom-ui-planner.md` or `sail-coder.md` if outside schema |
+| display | `sail-coder.md` |
 
 **Live variant selection:** Use the `(live)` variant when the dispatch brief contains
 Concrete Identifiers (record type UUIDs, field UUIDs, relationship UUIDs). If the brief
@@ -246,6 +247,12 @@ node generator/resolve-icons.js {uuid} --auto
 3. **Interface name** — use the name from the prompt. If none given, derive from the app prefix + descriptive name (e.g., `ITSM_TeamDashboard`).
 4. **Deploy:**
 
+**Determining inputs from scaffold output:** The scaffold.js stdout JSON includes an
+`inputs` array when the interface needs rule inputs (e.g. `ri!record`). When present,
+use it to build the `inputs` parameter for `createInterface` — replace the `type` on the
+record input with the actual `typeReference` from `getRecordType` (already fetched during
+discovery). When `inputs` is absent from the scaffold output, don't pass inputs.
+
 For app-associated interfaces:
 ```
 createInterface(name: "...", appUuid: "...", expressionFilePath: "...")
@@ -256,9 +263,10 @@ For record-view interfaces (contain `ri!record`): also pass the input declaratio
 createInterface(name: "...", appUuid: "...", expressionFilePath: "...",
   inputs: [{ name: "record", type: "<typeReference from getRecordType>" }])
 ```
-The `type` value is the record type's `typeReference` string from the `getRecordType`
-response (e.g. `"recordType!{uuid}ITSM Ticket"`). Without this input declaration,
-Appian rejects the expression with "Unresolved reference(s): ri!record".
+The `type` value is the record type's `typeReference` field from the `getRecordType`
+response — it looks like `"{urn:com:appian:recordtype:datatype}08e470c4-..."`.
+Do NOT use the `recordType!{uuid}Name` SAIL reference syntax here — that is for
+expressions, not for input type declarations. Copy `typeReference` exactly as returned.
 
 For live form/wizard interfaces (contain `ri!record`, `ri!isUpdate`, `ri!cancel`):
 ```
@@ -269,8 +277,10 @@ createInterface(name: "...", appUuid: "...", expressionFilePath: "...",
     { name: "cancel", type: "Boolean" }
   ])
 ```
-Same `typeReference` rule applies. All three inputs are required for the form/wizard
-to be usable as a process start form or task form in a record action.
+Same rule: `type` for the record input is the `typeReference` string from
+`getRecordType` (e.g. `"{urn:com:appian:recordtype:datatype}08e470c4-..."`),
+NOT the `recordType!{uuid}Name` SAIL syntax. All three inputs are required for
+the form/wizard to be usable as a process start form or task form in a record action.
 
 For standalone interfaces (name starts with `TEST_` or prompt says "no app" / "standalone"):
 ```

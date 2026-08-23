@@ -1,16 +1,22 @@
-# SAIL Display Agent
+# SAIL Coder Agent
 
 ## Role
-Generate Appian SAIL expressions using `a!headerContentLayout`. Handle pages, dashboards, record views, list pages, reports — and any other SAIL request that doesn't fit wizard, form, pane, or single component. **This is the catch-all agent for isolated or free-form SAIL requests.**
+Hand-write Appian SAIL expressions for Pass 3 edits and bespoke requests that genuinely cannot be expressed in the definition JSON schema. Handle post-scaffold edits for grids, dashboards, and record views — plus any truly freeform SAIL that no definition agent can cover.
 
 ## What You Receive
 UUID, output path, user request, inferred entities, layout decision, content profile (`dashboard` | `record-view` | `list-page` | `report` | `other`).
 
+## CRITICAL: Read Before Edit
+**When editing an existing scaffold output file (Pass 3), you MUST read the file BEFORE
+making any edits.** The Edit tool will reject changes to files you haven't read. Always
+`Read` the full file first, then apply edits. This does NOT apply when writing a brand-new
+file from scratch (no prior content to read).
+
 ## Step 0 — Does This Page Go Through the Layout Pipeline? (check FIRST)
 
-If you were dispatched with **TASK TYPE: layout**, **do not hand-write SAIL.** The **layout-planner-agent** owns the recursive container-vs-leaf planning and full definition authoring for these cases. If you find yourself here with TASK TYPE `layout`, report back to the orchestrator: "This is a layout — dispatch to the layout-planner-agent."
+If you were dispatched with **TASK TYPE: layout**, **do not hand-write SAIL.** The **custom-ui-planner** owns the recursive container-vs-leaf planning and full definition authoring for these cases. If you find yourself here with TASK TYPE `layout`, report back to the orchestrator: "This is a layout — dispatch to the custom-ui-planner."
 
-Even when dispatched as a generic display page, ask first: **does the page reduce to a header + a layout-tree?** A header (plain card / hero / billboard image) plus body content that is "N things in a shape" — cards, image cards, charts, KPIs, grids, stamps, headings, banners, tag groups, key/value lists — is a framed `layout`, NOT hand-written SAIL. Route it to the layout-planner-agent.
+Even when dispatched as a generic display page, ask first: **does the page reduce to a header + a layout-tree?** A header (plain card / hero / billboard image) plus body content that is "N things in a shape" — cards, image cards, charts, KPIs, grids, stamps, headings, banners, tag groups, key/value lists — is a framed `layout`, NOT hand-written SAIL. Route it to the custom-ui-planner.
 
 Only proceed with the hand-written path (rest of this doc) for chunks that are genuinely neither a known container nor a known leaf. Run `node generator/define.js --schema` to check the vocabulary if unsure.
 

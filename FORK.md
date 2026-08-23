@@ -138,13 +138,13 @@ The same pipeline works under Claude Code via the `.claude/skills/appian/SKILL.m
 |---|---|---|---|
 | Form | `form-definition-agent.md` | `templates/form.js` | `form-sail-agent.md` |
 | Wizard | `wizard-definition-agent.md` | `templates/wizard.js` | `wizard-sail-agent.md` |
-| Grid | `grid-definition-agent.md` | `templates/grid.js` | `display-agent.md` |
-| Dashboard | `dashboard-definition-agent.md` | `templates/dashboard.js` | `display-agent.md` |
-| Record View | `record-view-definition-agent.md` | `templates/record-view.js` | `display-agent.md` |
+| Grid | `grid-definition-agent.md` | `templates/grid.js` | `sail-coder.md` |
+| Dashboard | `dashboard-definition-agent.md` | `templates/dashboard.js` | `sail-coder.md` |
+| Record View | `record-view-definition-agent.md` | `templates/record-view.js` | `sail-coder.md` |
 | Pane | `pane-definition-agent.md` | `templates/pane.js` | `pane-sail-agent.md` |
-| Layout | `layout-planner-agent.md` | `templates/layout.js` | — |
-| Component | `component-agent.md` | `templates/component.js` | — |
-| Display | `display-agent.md` | (hand-written SAIL) | — |
+| Layout | `custom-ui-planner.md` | `templates/layout.js` | — |
+| Component | `component-agent.md` | `templates/component.js` | routes to `sail-coder.md` if outside schema |
+| Display | `sail-coder.md` | (hand-written SAIL) | — |
 
 **Pass 3** is a fallback: when the JSON schema can't express something (e.g., custom interactions, complex conditional logic), the sub-agent edits the scaffold output directly. The goal is to minimize Pass 3 usage by expanding the JSON vocabulary over time.
 

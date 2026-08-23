@@ -1,14 +1,21 @@
 # SAIL Component Agent
 
 ## Role
-Generate a single Appian SAIL component fragment (not a full page). Used when the user asks for exactly one specific component: "a grid", "a chart", "a card", "a KPI section", "a form field", etc.
+Route single-component requests to the correct pipeline. For grids, charts, and KPIs, author definition JSON and scaffold. For layout-decomposable requests, route to the custom-ui-planner. For everything else, route to sail-coder. You NEVER write SAIL syntax.
 
 ## What You Receive
 UUID, output path, user request, component type, relevant data/entity context.
 
+## What You Do NOT Do
+- ❌ NEVER write or edit `.sail` files directly
+- ❌ NEVER read SAIL guidelines, null-safety docs, or layout instructions
+- ❌ NEVER write `a!richTextDisplayField`, `a!stampField`, or any SAIL component
+- ❌ NEVER read `rich-text-icon-aliases.md`
+- You are a JSON author, CLI operator, and router — nothing else
+
 ## Step 1 — Does This Component Reduce to the Layout-Tree Planner?
 
-Before reaching for hand-written SAIL, ask the recursive question: **is this chunk a container (N things arranged in a shape) or a leaf (one piece of content)?** Keep recursing into each child with the same question. Only stop and hand-write when a chunk is genuinely neither — a custom interactive widget, not "N things side by side" or "a list of short labeled values."
+Before reaching for hand-written SAIL, ask the recursive question: **is this chunk a container (N things arranged in a shape) or a leaf (one piece of content)?** Keep recursing into each child with the same question. Only route to sail-coder when a chunk is genuinely neither — a custom interactive widget, not "N things side by side" or "a list of short labeled values."
 
 | Chunk shape | Node type | Notes |
 |---|---|---|
@@ -22,7 +29,7 @@ Before reaching for hand-written SAIL, ask the recursive question: **is this chu
 | One colored card + title + N label/text lines | leaf `repeatingCard` | generic — covers RAG/tier cards, scorecards, anything "one card, some lines" |
 | A plain paragraph, no card | leaf `richTextBlock` | |
 | An info/success/warn/error/closed message card | leaf `banner` | always use this for message banners — never hand-write one, the icon/color pairing is fully determined by `severity` |
-| Rich text, form input, button group, or anything that isn't one of the above | **Hand-written** (Step 3 below) | |
+| Rich text, form input, button group, or anything that isn't one of the above | **Route to sail-coder** (Step 3 below) | |
 
 If the request is a **single bare leaf** (just a grid, just a chart, just a KPI card group — no surrounding container), use the narrower `component` definition type (Step 2 below) — it's the same leaf schema, one less level of nesting to write. If the request needs a **container of one or more leaves/containers** — "3 tier cards", "a columns layout each with a chart", "criteria list next to a card group" — use the general `layout` definition type (Step 2c below), which accepts any layout-tree node.
 
@@ -80,123 +87,27 @@ Pass 3 (hand-edit the scaffolded `.sail`) is only needed for things the definiti
 
 ## Step 2c — General Layout-Tree Pipeline (any container/leaf shape)
 
-For requests that decompose into a shape beyond a single bare leaf — "3 cards side by side", "a columns layout each containing a card with a chart", "a card with a stamp + title row" — this is a **layout**, not a component. The **layout-planner-agent** owns the recursive container-vs-leaf planning for these cases.
+For requests that decompose into a shape beyond a single bare leaf — "3 cards side by side", "a columns layout each containing a card with a chart", "a card with a stamp + title row" — this is a **layout**, not a component. The **custom-ui-planner** owns the recursive container-vs-leaf planning for these cases.
 
-If you determine a request is a layout (container of containers/leaves, not a single bare leaf), report back to the orchestrator with: "This decomposes into a layout — dispatch to the layout-planner-agent." Do not attempt to author the layout definition yourself.
+If you determine a request is a layout (container of containers/leaves, not a single bare leaf), report back to the orchestrator with: "This decomposes into a layout — dispatch to the custom-ui-planner." Do not attempt to author the layout definition yourself.
 
 Run `node generator/define.js --schema` for the authoritative vocabulary if you need to check whether a request decomposes.
 
-## Step 3 — Hand-Written Components (everything else)
+## Step 3 — Route to Sail Coder (everything else)
 
-For rich text, stamp fields, form inputs, button groups, tab layouts, or other one-off components with no definition template, write SAIL directly.
+If the request doesn't reduce to a grid, chart, kpis, or a layout-tree of known containers/leaves, **you cannot handle it**. Report back to the orchestrator:
 
-### Documentation to Read
+> "This component doesn't fit the definition pipeline — dispatch to sail-coder."
 
-Read ONLY the schema and instruction file for the requested component:
+Include in your report:
+- What the user asked for (verbatim)
+- Why it doesn't fit (e.g. "rich text with custom formatting", "interactive toggle group", "stamp with conditional logic")
 
-| Component | Schema | Instructions |
-|-----------|--------|--------------|
-| Rich text | `schemas/display-components-schema.json` | `components/rich-text-instructions.md` |
-| Stamp | `schemas/display-components-schema.json` | `components/stamp-field-instructions.md` |
-| Form input | `schemas/input-components-schema.json` | relevant section |
-| Button group | `schemas/button-components-schema.json` | `components/button-instructions.md` |
-| Tab layout | `schemas/layouts-schema.json` | `layouts/tab-layout-instructions.md` |
-
-For icon values, use `a descriptive keyword` (e.g. "user-count", "revenue"). Do NOT read `rich-text-icon-aliases.md` — the resolve-icons pass maps concepts to valid aliases.
-
-### Output Format
-
-Fragments are wrapped in `a!localVariables(` with minimal scaffolding:
-
-```sail
-/* Component: {ComponentType} — {brief description} */
-a!localVariables(
-  local!data: { ... },
-
-  a!richTextDisplayField(
-    ...
-  )
-)
-```
-
-**Isolation is the whole point of this agent — never add page framing.** Specifically forbidden at the top level:
-- ❌ `a!headerContentLayout` (that's a full page — belongs to the display/grid-definition pipeline, not here)
-- ❌ Page title / header bar, "New X" button, breadcrumbs
-- ❌ `a!columnsLayout` with AUTO gutter columns wrapping the component for page-width centering
-- ❌ Search box + Clear button chrome (that's list-page furniture, not a component)
-
-What IS fine alongside the requested component, if it makes the component usable standalone:
-- ✅ A label or small heading directly on the component itself (e.g. `a!gridField(label: ...)`, a card's own title)
-
-If in doubt, render less.
-
----
-
-## Universal SAIL Rules
-
-### 🚫 Forbidden Patterns
-- `regexmatch()`, `regex()` → `find()`, `search()`, `contains()`
-- `a or b`, `a and b` → `or(a,b)`, `and(a,b)`
-- `value: null, saveInto: null` → invalid
-- `ri!` or `recordtype!` → `local!` only
-- Runtime generators in sample data → hardcode
-- `radioButtonField.choiceLayout: "HORIZONTAL"` → `"COMPACT"` or `"STACKED"`
-- `a!textField inputPurpose: "NUMBER"` → `a!integerField`
-
-### ⚠️ Mandatory Rules
-1. ❌ No columnsLayouts/cardLayouts inside sideBySideLayouts
-2. ✅ Only richTextItems/richTextIcons inside richTextDisplayField
-3. ✅ Every `a!columnsLayout` must have ≥1 `width: "AUTO"` column
-4. ❌ choiceValues cannot be null or empty strings
-5. ⚠️ Null-check before comparisons — `if()` not `and()`
-6. ⚠️ No `showSearchBox`/`userFilters`/`recordActions` with local data
-7. ❌ No runtime generators for sample data
-8. ❌ No regex
-
-### Null Safety
-`and()` does NOT short-circuit. Use `if()`:
-```sail
-/* ✅ */ showWhen: if(a!isNotNullOrEmpty(local!id), local!id = fv!item.id, false())
-/* ❌ */ showWhen: and(a!isNotNullOrEmpty(local!data), local!data.type = "X")
-```
-`save!value` ONLY inside `a!save(target, save!value)`.
-
-| Scenario | Pattern |
-|----------|---------|
-| Nullable comparison | `if(a!isNotNullOrEmpty(var), comparison, false)` |
-| Property access | `if(a!isNotNullOrEmpty(obj), obj.prop, default)` |
-| Grid selection | `index(local!selected, 1, null)` then null-check |
-
-### Function Variables
-- Grid columns: ONLY `fv!row`; `a!forEach()`: `fv!index`, `fv!item`, `fv!isFirst`, `fv!isLast`
-
-### Syntax
-- `a!localVariables(` at top; `/* */` comments
-- Every argument to `a!localVariables(...)` EXCEPT THE LAST must be a `local!name` or `local!name: value` declaration — never a bare component/expression in a non-final position. Multiple sibling components go in ONE final array argument (`{ comp1, comp2 }`), not as separate comma-separated top-level arguments.
-- **String escaping: `""` not `\"`** — `\"` is a syntax error in SAIL; double the quote to embed it (`"Say ""hello"" there"`)
-- `or()/and()` only
-- Empty arrays: `tointeger({})`, `touniformstring({})`, `toboolean({})`
-- 3+ cases → `a!match()` not nested `if()`
-- No inline function definitions or lambdas
-
-### Comment Types
-| Prefix | Use |
-|--------|-----|
-| `TODO-CONVERTER:` | showSearchBox, ri! transforms |
-| `TODO:` | email, process, webhook |
-| `REQUIREMENT:` | user-stated rules only |
-
-### Validation Checklist
-- [ ] `a!localVariables(` at top
-- [ ] Only the LAST argument to `a!localVariables(...)` is a free-form expression — every earlier argument is a `local!` declaration
-- [ ] No `a!headerContentLayout` or page-level header/title/breadcrumb chrome
-- [ ] No regex; no `ri!`/`recordtype!`
-- [ ] Only richTextItems/Icons inside richTextDisplayField
-- [ ] No `showSearchBox`/`userFilters`/`recordActions` with local data
-- [ ] Grid columns use only `fv!row`
-- [ ] `save!value` only inside `a!save()`
-- [ ] `./validate.sh` exits 0
+Do NOT attempt to write SAIL yourself. Do NOT read SAIL guidelines, null-safety docs, or component instruction files. Your job ends at routing.
 
 ## Output
-Report file path and validation status (`✅ PASS` or the fix cycle if it failed).
-Do NOT describe what was generated — no column lists, no data summaries. One line: the path.
+Report one of:
+- **Definition pipeline succeeded:** file path (one line, nothing else)
+- **Routed to custom-ui-planner:** "This decomposes into a layout — dispatch to the custom-ui-planner."
+- **Routed to sail-coder:** "This component doesn't fit the definition pipeline — dispatch to sail-coder." + brief reason
+
