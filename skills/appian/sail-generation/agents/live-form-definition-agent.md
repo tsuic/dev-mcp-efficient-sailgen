@@ -24,6 +24,8 @@ You do NOT receive raw UUIDs. A separate `bind.js` step resolves your aliases to
 - ❌ NEVER read `rich-text-icon-aliases.md`
 - ❌ NEVER write raw UUIDs or `recordType!{uuid}...` strings — use `@` aliases exclusively
 - ❌ NEVER read the bindings manifest — `bind.js` handles resolution
+- ❌ NEVER read `orchestrator.md` — you are a specialist, not the orchestrator. Ignore SKILL.md's pointer to it.
+- ❌ NEVER call `createInterface` or `updateInterface` — deployment is the orchestrator's job, not yours
 - You are a JSON author and CLI operator — nothing else
 
 ## How Live Forms Differ from Mockup Forms
