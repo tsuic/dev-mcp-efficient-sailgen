@@ -92,8 +92,7 @@ refinement. Common gaps:
 - Interactive elements (tag selectors, search bars)
 - Custom formatting functions (dollar(), todate())
 
-If significant gaps exist, suggest the user run Pass 3 edits on the deployed
-interface or describe what to add.
+If significant gaps exist, list them as remaining to-dos in the post-deploy summary.
 
 ## RELATIONSHIP TO sail-generation.md
 
@@ -105,7 +104,6 @@ specialist agent is needed for the structural scaffold.
 The normal sail-generation.md steering still handles:
 - Natural language → SAIL (user describes a UI in words)
 - Live record-backed interfaces (UUIDs from MCP tools)
-- Pass 3 behavioral edits (showWhen, saveInto, dynamic expressions)
 
 ## ANTI-PATTERNS
 

@@ -42,8 +42,9 @@ export function parseComponentTree(source: string): ComponentNode[] {
   const lineStarts = computeLineStarts(source);
 
   // Stack of currently-open components, with the paren depth at which each opened.
-  const open: Array<{ node: ComponentNode; depth: number }> = [];
+  const open: Array<{ node: ComponentNode; depth: number; braceDepth: number }> = [];
   let depth = 0;
+  let braceDepth = 0;
   let inString = false;
   let inBlockComment = false;
 
@@ -66,6 +67,14 @@ export function parseComponentTree(source: string): ComponentNode[] {
     }
     if (inString) continue;
 
+    if (ch === "{") {
+      braceDepth++;
+      continue;
+    }
+    if (ch === "}") {
+      braceDepth--;
+      continue;
+    }
     if (ch === "(") {
       // Is this the opening paren of an a!component( invocation?
       const preceding = source.slice(Math.max(0, i - 80), i);
@@ -79,7 +88,7 @@ export function parseComponentTree(source: string): ComponentNode[] {
         const node: ComponentNode = { name, offset, line, col, params: new Set(), children: [], parent };
         if (parent) parent.children.push(node);
         else roots.push(node);
-        open.push({ node, depth });
+        open.push({ node, depth, braceDepth });
       }
       continue;
     }
@@ -96,12 +105,16 @@ export function parseComponentTree(source: string): ComponentNode[] {
     // Parameter detection: `name:` at exactly one level inside the innermost
     // open component. We detect an identifier followed by a colon that is NOT
     // "::" and is at the component's direct-param depth.
+    // Skip when inside braces that opened AFTER the component — those keys
+    // are dictionary/map literals, not component params. But braces that were
+    // already open when the component started (e.g. `columns: { a!gridColumn(
+    // label: ... ) }`) should NOT block param detection.
     if (isIdentStart(ch) && open.length > 0) {
       const top = open[open.length - 1];
-      // Direct params sit at depth === component's open depth (the paren that
-      // opened the component put us at `top.depth`; its args are also scanned
-      // at that same running depth until a nested "(" bumps it).
-      if (depth === top.depth) {
+      // Direct params sit at depth === component's open depth.
+      // Only skip if braceDepth has increased SINCE the component opened
+      // (meaning we're inside a nested map/dict literal within this component).
+      if (depth === top.depth && braceDepth <= top.braceDepth) {
         // Read the identifier.
         let j = i;
         while (j < source.length && isIdentPart(source[j])) j++;

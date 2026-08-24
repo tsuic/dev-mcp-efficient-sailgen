@@ -1,3 +1,8 @@
+---
+model: haiku
+description: "Writes live record-view definition JSON using concrete record type UUIDs. No SAIL — pure JSON authoring + CLI."
+---
+
 # Live Record View Definition Agent
 
 ## Role
@@ -55,7 +60,7 @@ Build the `dataBinding` block field-by-field from the Concrete_Identifiers you r
 
 **Page title from a queried field:** If the page title should display a field value (not a static label), set `titleFieldRef` at the top level of the definition to the same field reference or localName that appears in `dataBinding.fields`. The scaffold renders the header title from the queried value instead of the static `recordName`.
 
-**Header Edit action:** If the record type has an edit action, set `editActionRef` at the top level to the record action reference (e.g. `"recordType!{uuid}Name.actions.editTicket"`). The scaffold renders the header's Edit button as an `a!recordActionField` targeting the current record via its identifier. Omit it if no edit action exists — the scaffold falls back to a placeholder button with a TODO comment.
+**Header Edit action:** If the record type has an edit action, set `editActionRef` at the top level to the UUID-qualified record action reference (e.g. `"recordType!{rtUuid}Name.actions.{actionUuid}editTicket"`). The scaffold renders the header's Edit button as an `a!recordActionField` targeting the current record via its identifier. Omit it if no edit action exists — the scaffold falls back to a placeholder button with a TODO comment.
 
 Use `keyAttributes`/`sections`/`layout` to actually DISPLAY the fields `dataBinding` queried — this is the normal way to surface queried data with zero hand-written SAIL, not a fallback. Every `keyAttributes[]`/`sections[].fields[]` entry supports a `fieldRef` in place of `value`:
 - `fieldRef` set to a relationship-qualified `dataBinding.fields[].localName` (e.g. `"statusLabel"`) or a `dataBinding.relatedRecordData[].localName` -> resolves to that entry's own `local!{localName}` binding.
@@ -63,7 +68,7 @@ Use `keyAttributes`/`sections`/`layout` to actually DISPLAY the fields `dataBind
 - Omit `fieldRef` and use `value` instead for genuinely hardcoded/static content (rare for a live-data view, but still supported — same as the mock agent).
 - `value` and `fieldRef` are mutually exclusive on the same field entry; validation rejects a definition that sets both, or a `fieldRef` that doesn't match anything declared in `dataBinding`.
 
-This means: for every `dataBinding.fields`/`relatedRecordData` entry you want visible on the page, add a matching `keyAttributes` or `sections[].fields` entry with `fieldRef` set to that entry's field reference or `localName`. Only hand off to Pass 3 (`sail-coder`) for content `keyAttributes`/`sections`/`layout`'s fixed shapes genuinely can't express — conditional visibility, multiple action buttons, custom per-item formatting a `relatedRecordData` entry's `itemFields` can't cover, or similar bespoke behavior. Displaying a plain queried field or a relationship-qualified lookup is never itself a reason to hand off.
+This means: for every `dataBinding.fields`/`relatedRecordData` entry you want visible on the page, add a matching `keyAttributes` or `sections[].fields` entry with `fieldRef` set to that entry's field reference or `localName`. Only report as a to-do item content that `keyAttributes`/`sections`/`layout`'s fixed shapes genuinely can't express — conditional field visibility, custom per-item formatting a `relatedRecordData` entry's `itemFields` can't cover, or similar bespoke behavior. Process-launching buttons, record action fields, and process links are all handled natively by the `layout` field (see leaf types: `button`, `linkField`, `recordActionField`).
 
 ```bash
 # Write the full JSON (with dataBinding) to a temp file with the Write tool, then pass its path:
@@ -94,7 +99,14 @@ echo "${OUT%-scaffold.sail}.sail"       # this absolute path is what you report 
 
 **If a related-record-data entry's per-item rendering reduces to a title field, a body field, and optionally an avatar-text field/literal and a trailing field:** declare an `itemFields` mapping on that entry (see Schema Reference) instead of a TODO — the Scaffold_Template renders the card mechanically, with zero Sail_Coder hand-off.
 
-**If display content beyond `keyAttributes`/`sections`/`layout` rendering is needed** — genuinely custom per-item formatting a related-record-data entry's `itemFields` can't express, conditional field visibility, multiple action buttons, or other bespoke interactive behavior — hand off to `sail-coder` with the file path and a specific description of the non-data content needed, same handoff contract as the mock agent. Displaying a queried field via `fieldRef` (see Step 1) is NOT one of these cases — always prefer `fieldRef` over a Pass-3 hand-off when the content is just "show this field I already queried."
+**If display content beyond `keyAttributes`/`sections`/`layout` rendering is needed** — genuinely custom per-item formatting a related-record-data entry's `itemFields` can't express, conditional field visibility, or other bespoke interactive behavior — report it as an unmet requirement (to-do item) in your output. Displaying a queried field via `fieldRef` (see Step 1) is NOT one of these cases — always prefer `fieldRef` over a to-do when the content is just "show this field I already queried."
+
+**Process-launching buttons/links do NOT require manual editing.** Use the `layout` field with:
+- `{ "leaf": "recordActionField", "actions": [...] }` — for record actions (Edit, Work On)
+- `{ "leaf": "button", "label": "...", "action": { "type": "startProcess", "processModel": "cons!...", "processParameters": {...} } }` — for unattended process launch
+- `{ "leaf": "linkField", "links": [{ "text": "...", "linkType": "startProcess", "processModel": "cons!...", "processParameters": {...}, "bannerMessage": "..." }] }` — for attended process link
+
+These are all natively rendered by the scaffold — no hand-written SAIL needed.
 
 ## Schema Reference
 
@@ -128,7 +140,7 @@ A top-level optional field on the definition. When set, the scaffold renders the
 
 | Field | Required | Shape | Notes |
 |---|---|---|---|
-| `editActionRef` | optional | non-empty string | Must be a record action reference containing `.actions.` (e.g. `"recordType!{uuid}Name.actions.editTicket"`). Requires `dataBinding` to be present. |
+| `editActionRef` | optional | non-empty string | Must be a UUID-qualified record action reference: `"recordType!{rtUuid}Name.actions.{actionUuid}key"`. Same pattern as fields and relationships. Requires `dataBinding` to be present. |
 
 Use this when the record type has an edit-related action configured. The scaffold renders:
 ```sail
@@ -154,7 +166,7 @@ Example:
   "title": "ITSM Ticket Summary",
   "entityName": "Ticket",
   "recordName": "TCK-10432",
-  "editActionRef": "recordType!{08e470c4-...}ITSM Ticket.actions.editTicket",
+  "editActionRef": "recordType!{08e470c4-...}ITSM Ticket.actions.{8cff1b13-...}editTicket",
   "dataBinding": { ... }
 }
 ```
@@ -244,7 +256,7 @@ Order is preserved — each pair's `field` must be a non-empty string and `value
   "entityName": "Ticket",
   "recordName": "TCK-10432",
   "titleFieldRef": "recordType!{08e470c4-0802-4f4b-b3c2-407d7486d21a}ITSM Ticket.fields.{ac16ddcc-c365-46c6-8425-64d428dbd1cb}title",
-  "editActionRef": "recordType!{08e470c4-0802-4f4b-b3c2-407d7486d21a}ITSM Ticket.actions.editTicket",
+  "editActionRef": "recordType!{08e470c4-0802-4f4b-b3c2-407d7486d21a}ITSM Ticket.actions.{8cff1b13-7023-4eb9-9728-dffc6efad69f}editTicket",
   "dataBinding": {
     "recordType": "recordType!{08e470c4-0802-4f4b-b3c2-407d7486d21a}ITSM Ticket",
     "identifier": "recordType!{08e470c4-0802-4f4b-b3c2-407d7486d21a}ITSM Ticket.fields.{7059af26-0ad6-4c88-92d1-f96e7260137c}id",
@@ -310,5 +322,5 @@ Order is preserved — each pair's `field` must be a non-empty string and `value
 ```
 
 ## Output
-Report: file path, whether Pass 3 is needed, any `todos` entries left for the reviewer.
+Report: file path, plus any unmet requirements as specific to-do items (including any `todos` entries left for the reviewer).
 Do NOT describe what was generated — no field lists, no section summaries. One line: the path.

@@ -123,6 +123,7 @@ export function checkStructuralRules(source: string): ValidationError[] {
 
   for (const node of all) {
     checkContainment(node, errors);
+    checkForbiddenChildren(node, errors);
     checkRequiredParams(node, errors);
     checkCompanionParams(node, errors);
   }
@@ -148,6 +149,42 @@ function checkContainment(node: ComponentNode, errors: ValidationError[]): void 
         col: child.col,
         snippet: child.name + "(",
         message: `${rule.message} (found ${child.name} inside ${node.name})`,
+      });
+    }
+  }
+}
+
+// ── 1b. FORBIDDEN CHILDREN ──────────────────────────────────────────────────
+// component -> set of component names that must NOT appear as its direct children.
+// Inverse of CONTAINMENT — used when a container accepts almost everything
+// EXCEPT certain components (e.g. buttons can't go directly in column/card contents).
+const FORBIDDEN_CHILDREN: Record<string, { forbidden: Set<string>; message: string }> = {
+  "a!columnLayout": {
+    forbidden: new Set(["a!buttonWidget"]),
+    message:
+      "a!buttonWidget cannot be placed directly inside a!columnLayout contents. " +
+      "Wrap it in a!buttonArrayLayout(buttons: { a!buttonWidget(...) }).",
+  },
+  "a!cardLayout": {
+    forbidden: new Set(["a!buttonWidget"]),
+    message:
+      "a!buttonWidget cannot be placed directly inside a!cardLayout contents. " +
+      "Wrap it in a!buttonArrayLayout(buttons: { a!buttonWidget(...) }).",
+  },
+};
+
+function checkForbiddenChildren(node: ComponentNode, errors: ValidationError[]): void {
+  const rule = FORBIDDEN_CHILDREN[node.name];
+  if (!rule) return;
+  for (const child of node.children) {
+    if (rule.forbidden.has(child.name)) {
+      errors.push({
+        rule: "STRUCT_FORBIDDEN_CHILD",
+        severity: "ERROR",
+        line: child.line,
+        col: child.col,
+        snippet: child.name + "(",
+        message: rule.message,
       });
     }
   }

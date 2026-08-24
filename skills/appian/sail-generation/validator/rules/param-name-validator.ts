@@ -14,10 +14,9 @@ import type { ValidationError } from "../report.js";
  * - `showSearchBox` on a!gridField when used with non-record data
  * - any typo'd or misplaced param name
  *
- * Does NOT flag components absent from the registry (we only have partial
- * coverage) — silently skips them. False-positive risk is low because the
- * registry is compiled from the official schema JSONs and includes all
- * inherited params.
+ * Also validates component EXISTENCE: any `a!` invocation that has named
+ * parameters but is not in the registry, SKIP_COMPONENTS, or KNOWN_FUNCTIONS
+ * is flagged as a potentially non-existent/hallucinated component.
  */
 
 /**
@@ -57,16 +56,85 @@ const SKIP_COMPONENTS = new Set([
   "a!httpFormPart",
 ]);
 
+/**
+ * Known a!-prefixed FUNCTIONS that the component-tree parser may pick up
+ * (they share the a! prefix with components but are not UI components).
+ * These are never flagged as non-existent components.
+ */
+const KNOWN_FUNCTIONS = new Set([
+  // Utility / expression functions
+  "a!isNotNullOrEmpty",
+  "a!isNullOrEmpty",
+  "a!defaultValue",
+  "a!match",
+  "a!update",
+  "a!flatten",
+  "a!startProcess",
+  "a!writeRecords",
+  "a!deleteRecords",
+  // Query building
+  "a!queryExpression",
+  "a!queryAggregation",
+  "a!queryColumn",
+  "a!querySelection",
+  "a!queryRecordByIdentifier",
+  // Custom record field functions
+  "a!customFieldConcat",
+  "a!customFieldMatch",
+  "a!customFieldDateDiff",
+  "a!customFieldSum",
+  "a!customFieldSubtract",
+  "a!customFieldMultiply",
+  "a!customFieldDivide",
+  "a!customFieldDefaultValue",
+  "a!customFieldCondition",
+  "a!customFieldLogicalExpression",
+  // Record filter functions
+  "a!recordFilterList",
+  "a!recordFilterListOption",
+  "a!recordFilterDateRange",
+  "a!recordFilterChoices",
+  // Interface / component utility
+  "a!titleBar",
+  "a!iconIndicator",
+  "a!iconNewsEvent",
+  // HTTP
+  "a!httpHeader",
+  "a!httpQuery",
+  // Deprecated but may appear in older code
+  "a!cmiMappingField",
+]);
+
 export function checkParamNames(source: string): ValidationError[] {
   const errors: ValidationError[] = [];
   const roots = parseComponentTree(source);
   const all = flattenTree(roots);
 
   for (const node of all) {
-    const allowed = COMPONENT_ALLOWED_PARAMS[node.name];
-    if (!allowed) continue; // component not in registry — skip
-    if (SKIP_COMPONENTS.has(node.name)) continue; // variable-declaration containers
+    if (SKIP_COMPONENTS.has(node.name)) continue;
+    if (KNOWN_FUNCTIONS.has(node.name)) continue;
 
+    const allowed = COMPONENT_ALLOWED_PARAMS[node.name];
+
+    // ── Component existence check ──
+    // If this a! invocation is not in the param registry and it has at least
+    // one named parameter (distinguishing it from a plain function call), flag
+    // it as a potentially non-existent component.
+    if (!allowed) {
+      if (node.params.size > 0) {
+        errors.push({
+          rule: "NONEXISTENT_COMPONENT",
+          severity: "ERROR",
+          line: node.line,
+          col: node.col,
+          snippet: `${node.name}(`,
+          message: `${node.name} does not exist or is not a known SAIL component. Check spelling — common fixes: a!spacerWidget → remove (use marginAbove/marginBelow), a!processLink → a!startProcessLink, a!tabContainerLayout → a!tabLayout.`,
+        });
+      }
+      continue;
+    }
+
+    // ── Parameter name validation ──
     for (const param of node.params) {
       if (allowed.has(param)) continue;
       if (UNIVERSAL_PARAMS.has(param)) continue;

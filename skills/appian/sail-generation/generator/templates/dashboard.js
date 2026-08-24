@@ -88,14 +88,8 @@ function renderFilter(filter, dataSource, indent) {
 }
 
 function renderFilterValue(value) {
-  if (Array.isArray(value)) return `{${value.map(renderFilterValue).join(", ")}}`;
-  if (typeof value === "string") {
-    // Check if it's a SAIL expression (contains parentheses or starts with known functions)
-    if (value.includes("(") || value.startsWith("local!") || value.startsWith("loggedInUser")) return value;
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  if (typeof value === "boolean") return value ? "true()" : "false()";
-  return String(value);
+  const { expandFilterValue } = require("./expr-primitives");
+  return expandFilterValue(value);
 }
 
 /**
@@ -417,14 +411,16 @@ ${i}          )`;
     } else if (col.type === "tag") {
       const tagEntries = Object.entries(col.tagColors || {});
       let colorExpr;
-      if (tagEntries.length <= 4) {
-        // Use nested if() for small tag sets
-        const ifs = tagEntries.map(([val, color]) =>
-          `fv!row['${fieldRef}'] = "${val}", "${color}"`
-        ).join(", ");
-        colorExpr = `if(${ifs}, "${tagEntries[0]?.[1] || "ACCENT"}")`;
-      } else {
+      if (tagEntries.length === 0) {
         colorExpr = `"ACCENT"`;
+      } else if (tagEntries.length === 1) {
+        const [val, color] = tagEntries[0];
+        colorExpr = `if(fv!row['${fieldRef}'] = "${val}", "${color}", "ACCENT")`;
+      } else {
+        // Use nested if() for multiple entries — SAIL if() is strictly 3-arg
+        colorExpr = tagEntries.reduceRight((elseExpr, [val, color]) => {
+          return `if(fv!row['${fieldRef}'] = "${val}", "${color}", ${elseExpr})`;
+        }, `"ACCENT"`);
       }
       return `${i}          a!gridColumn(
 ${i}            label: "${col.label}",
@@ -440,8 +436,8 @@ ${i}          )`;
       // text, computed, etc.
       let valueExpr = `fv!row['${fieldRef}']`;
       if (col.computed) {
-        // Allow computed expressions (e.g. days open calculation)
-        valueExpr = col.computed;
+        const { expandComputed } = require("./expr-primitives");
+        valueExpr = expandComputed(col.computed, (alias) => resolveFieldRef(alias, dataSource));
       }
       return `${i}          a!gridColumn(
 ${i}            label: "${col.label}",
@@ -771,6 +767,11 @@ module.exports = {
   renderGridSection,
   renderSkeletonSection,
   collectKpiDecls,
+  // Exported for templates/grid.js live rendering — shared helpers for
+  // resolving field aliases and rendering filter expressions.
+  resolveFieldRef,
+  renderFiltersBlock,
+  renderFilterValue,
 };
 
 // Register grid/chart/kpis as layout-tree leaves, reusing these exact

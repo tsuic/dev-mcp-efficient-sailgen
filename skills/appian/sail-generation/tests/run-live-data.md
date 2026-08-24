@@ -115,10 +115,25 @@ suffix derived from the log directory timestamp).
 | Feature | Test IDs |
 |---------|----------|
 | Live dashboard | live-dashboard-01 |
+| Live record-view | live-record-view-01, live-layout-01 |
+| Live form | live-form-01 |
+| Live wizard | live-wizard-01 |
+| Live grid (records-powered) | live-grid-01 |
 | MCP schema discovery | all |
 | KPI with record queries | live-dashboard-01 |
 | Filtered aggregations | live-dashboard-01 |
 | Date arithmetic in queries | live-dashboard-01 |
 | loggedInUser() context | live-dashboard-01 |
-| a!gridField with records | live-dashboard-01 |
+| a!gridField with records | live-dashboard-01, live-grid-01 |
 | Chart from record data | live-dashboard-01 |
+| showExportButton (built-in export) | live-grid-01 |
+| exportWhen (per-column export control) | live-grid-01 |
+| recordActions on grid (list action) | live-grid-01 |
+| recordActions on grid (per-row related) | live-grid-01 |
+| refreshAfter RECORD_ACTION | live-grid-01 |
+| a!recordActionField leaf | live-layout-01 |
+| button with startProcess action | live-layout-01 |
+| linkField with startProcessLink | live-layout-01 |
+| processModel constant references | live-layout-01 |
+| processParameters with identifier | live-layout-01 |
+| bannerMessage on startProcessLink | live-layout-01 |

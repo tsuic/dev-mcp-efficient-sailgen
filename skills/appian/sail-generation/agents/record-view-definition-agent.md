@@ -1,3 +1,8 @@
+---
+model: haiku
+description: "Writes record-view definition JSON from a self-contained schema. No SAIL, no MCP — pure JSON authoring + CLI."
+---
+
 # Record View Definition Agent
 
 ## Role
@@ -52,7 +57,7 @@ There is no `repeatingCard` leaf — that name doesn't exist in the current sche
 
 **If it decomposes** → add a `"layout"` field to the definition and re-run scaffold. Done after validation passes — report the file path.
 
-**If it doesn't decompose** — genuinely custom interactive behavior beyond what containers/leaves express (conditional field visibility, multiple action buttons beyond Edit, activity timelines with custom formatting) → report file path + what domain content is needed for Pass 3.
+**If it doesn't decompose** — genuinely custom interactive behavior beyond what containers/leaves express (conditional field visibility, multiple action buttons beyond Edit, activity timelines with custom formatting) → report file path + list each unmet requirement as a specific to-do item.
 
 ### The `layout` field (optional, alongside `sections`)
 
@@ -203,5 +208,5 @@ Prefer a hex color (e.g. `"#2C3E50"`) for every `tagColors` entry — it always 
 - Header → record name + right-justified Edit button
 
 ## Output
-Report: file path, whether Pass 3 is needed.
+Report: file path, plus any unmet requirements as specific to-do items.
 Do NOT describe what was generated — no field lists, no section summaries. One line: the path.

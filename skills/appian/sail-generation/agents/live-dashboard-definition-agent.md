@@ -1,3 +1,8 @@
+---
+model: haiku
+description: "Writes live dashboard definition JSON using concrete record type UUIDs. No SAIL — pure JSON authoring + CLI."
+---
+
 # Live Dashboard Definition Agent
 
 ## Role
@@ -51,16 +56,19 @@ mv "$OUT" "${OUT%-scaffold.sail}.sail"  # drop the -scaffold suffix
 echo "${OUT%-scaffold.sail}.sail"       # this absolute path is what you report back
 ```
 
-## Step 3 — Done or Need Pass 3?
+## Step 3 — Report Result
 
-Does the request require:
+Report the file path. Then check: does the user's request include requirements beyond
+what the definition schema can express?
+
+Things the schema CANNOT express (become to-dos):
 - Tabs or multi-view switching
 - Custom filter interactions between sections
 - Conditional card visibility
 - Avg/computed metrics that aren't a simple aggregation (e.g. avg resolution time requiring forEach over rows)
 
-**If NO** → done. Report file path.
-**If YES** → report file path + what domain content is needed for Pass 3.
+**If NO unmet requirements** → done. Report file path.
+**If YES** → report file path + list each unmet requirement as a specific to-do item.
 
 ---
 
@@ -156,13 +164,28 @@ When `dataSource` is present, each KPI item uses `query` instead of `value`:
 |-------|----------|-------|
 | `field` | ✅ | Alias from `dataSource.fields` |
 | `operator` | ✅ | `=`, `<>`, `>`, `>=`, `<`, `<=`, `in`, `not in`, `is null`, `not null` |
-| `value` | Required unless operator is `is null`/`not null` | Literal value, array, or SAIL expression string |
+| `value` | Required unless operator is `is null`/`not null` | Literal value, array, or `$expr` object |
 
-For SAIL expression values (date math, current user):
+For dynamic filter values (date math, current user), use `$expr` objects instead of raw SAIL:
+
 ```json
-{ "field": "resolvedAt", "operator": ">=", "value": "todatetime(today() - 7)" }
-{ "field": "assignedTo", "operator": "=", "value": "loggedInUser()" }
+{ "field": "resolvedAt", "operator": ">=", "value": { "$expr": "daysAgo", "days": 7 } }
+{ "field": "assignedTo", "operator": "=", "value": { "$expr": "currentUser" } }
 ```
+
+**Available `$expr` types for filter values:**
+
+| `$expr` | Parameters | Use for |
+|---|---|---|
+| `"daysAgo"` | `"days": number` | Records older than N days |
+| `"daysFromNow"` | `"days": number` | Records due within N days |
+| `"currentUser"` | (none) | Filter to logged-in user |
+| `"today"` | (none) | Today's date |
+| `"now"` | (none) | Current timestamp |
+| `"startOfMonth"` | (none) | First day of current month |
+
+Never write raw SAIL functions (`todatetime()`, `today()`, `loggedInUser()`) in filter values.
+If the filter logic you need is not in this list → report it as an unmet requirement (to-do item) in your output.
 
 ### Record-powered grids
 
@@ -175,7 +198,7 @@ Add `recordSource` to a grid section. Omit `rows` — only `columns` are needed:
   "recordSource": {
     "filters": [
       { "field": "statusId", "operator": "in", "value": [1, 2, 3] },
-      { "field": "createdAt", "operator": "<=", "value": "todatetime(today() - 5)" }
+      { "field": "createdAt", "operator": "<=", "value": { "$expr": "daysAgo", "days": 5 } }
     ],
     "sort": { "field": "createdAt", "ascending": true }
   },
@@ -186,7 +209,7 @@ Add `recordSource` to a grid section. Omit `rows` — only `columns` are needed:
     { "name": "priority", "label": "Priority", "type": "tag", "width": "NARROW_PLUS", "fieldRef": "priorityLabel",
       "tagColors": { "Low": "#7F8C8D", "Medium": "#F39C12", "High": "#E67E22", "Critical": "#C0392B" } },
     { "name": "daysOpen", "label": "Days Open", "type": "text", "width": "NARROW", "fieldRef": "createdAt",
-      "computed": "tointeger(today() - todate(fv!row['recordType!{uuid}Name.fields.{uuid}createdAt']))" },
+      "computed": { "$expr": "daysSince", "fieldRef": "createdAt" } },
     { "name": "assignee", "label": "Assignee", "type": "text", "width": "NARROW_PLUS", "fieldRef": "assignedTo" }
   ]
 }
@@ -200,7 +223,7 @@ Add `recordSource` to a grid section. Omit `rows` — only `columns` are needed:
 | `width` | ✅ | `NARROW`, `NARROW_PLUS`, `MEDIUM`, `MEDIUM_PLUS`, `WIDE`, `AUTO` |
 | `fieldRef` | ✅ | Alias from `dataSource.fields` — resolves to `fv!row['...']` |
 | `tagColors` | Required for `tag` type | Maps display values → colors |
-| `computed` | Optional | Raw SAIL expression — overrides `fv!row[fieldRef]` for calculated columns |
+| `computed` | Optional | Structured `$expr` object — overrides `fv!row[fieldRef]` for calculated columns (see filter `$expr` table above; computed columns also support `"daysSince"`, `"daysUntil"`, `"concat"`) |
 
 **`recordSource` fields:**
 
@@ -256,6 +279,28 @@ Same as mockup schema — nest any combination of live KPIs, grids, charts:
 ### Tag colors
 Prefer hex colors (e.g. `"#C0392B"`) — always validates. The only non-hex values accepted are the exact words `ACCENT`, `POSITIVE`, `NEGATIVE`, `SECONDARY` (case-sensitive, closed 4-word list).
 
+### `computed` — Expression Primitives (`$expr`)
+
+Computed columns use structured `$expr` objects instead of raw SAIL:
+
+| `$expr` | Parameters | Use for |
+|---|---|---|
+| `"daysSince"` | `"fieldRef": "alias"` | Days between a date field and today |
+| `"daysUntil"` | `"fieldRef": "alias"` | Days between today and a future date field |
+| `"concat"` | `"parts": [...]` | Concatenation of strings and field values |
+
+**Examples:**
+
+```json
+{ "name": "daysOpen", "label": "Days Open", "type": "text", "width": "NARROW",
+  "fieldRef": "createdAt",
+  "computed": { "$expr": "daysSince", "fieldRef": "createdAt" } }
+```
+
+`concat` parts: each element is a plain string (`" "`, `"#"`) or a field ref object (`{ "fieldRef": "alias" }`).
+
+If the computed logic you need is not in this list → report it as an unmet requirement (to-do item) in your output.
+
 ---
 
 ## Full Example
@@ -296,7 +341,7 @@ Prefer hex colors (e.g. `"#C0392B"`) — always validates. The only non-hex valu
         { "label": "Critical / High", "sub": "Open priority tickets", "icon": "open-tickets", "color": "#C0392B",
           "query": { "function": "COUNT", "field": "id", "filters": [{ "field": "statusId", "operator": "in", "value": [1, 2, 3] }, { "field": "priorityId", "operator": "in", "value": [3, 4] }] } },
         { "label": "Resolved This Week", "sub": "Last 7 days", "icon": "open-tickets", "color": "#27AE60",
-          "query": { "function": "COUNT", "field": "id", "filters": [{ "field": "resolvedAt", "operator": ">=", "value": "todatetime(today() - 7)" }] } }
+          "query": { "function": "COUNT", "field": "id", "filters": [{ "field": "resolvedAt", "operator": ">=", "value": { "$expr": "daysAgo", "days": 7 } }] } }
       ]
     },
     {
@@ -305,7 +350,7 @@ Prefer hex colors (e.g. `"#C0392B"`) — always validates. The only non-hex valu
       "recordSource": {
         "filters": [
           { "field": "statusId", "operator": "in", "value": [1, 2, 3] },
-          { "field": "createdAt", "operator": "<=", "value": "todatetime(today() - 5)" }
+          { "field": "createdAt", "operator": "<=", "value": { "$expr": "daysAgo", "days": 5 } }
         ],
         "sort": { "field": "createdAt", "ascending": true }
       },
@@ -325,7 +370,7 @@ Prefer hex colors (e.g. `"#C0392B"`) — always validates. The only non-hex valu
             "filters": [{ "field": "statusId", "operator": "in", "value": [1, 2, 3] }] } },
         { "type": "grid", "label": "My Queue",
           "recordSource": {
-            "filters": [{ "field": "statusId", "operator": "in", "value": [1, 2, 3] }, { "field": "assignedTo", "operator": "=", "value": "loggedInUser()" }],
+            "filters": [{ "field": "statusId", "operator": "in", "value": [1, 2, 3] }, { "field": "assignedTo", "operator": "=", "value": { "$expr": "currentUser" } }],
             "sort": { "field": "createdAt", "ascending": true }
           },
           "columns": [
@@ -341,12 +386,11 @@ Prefer hex colors (e.g. `"#C0392B"`) — always validates. The only non-hex valu
 ```
 
 ## Output
-Report: file path (absolute, resolved — NOT `$TMPDIR`), whether Pass 3 is needed, any computed metrics that require hand-written SAIL (e.g. avg resolution time with forEach).
+Report: file path (absolute, resolved — NOT `$TMPDIR`), plus any unmet requirements as specific to-do items (e.g. avg resolution time with forEach).
 Do NOT describe what was generated — no KPI lists, no chart summaries. One line: the path.
 
 When reporting the file path, always use the actual resolved path from scaffold.js stdout
 (e.g. `/var/folders/.../sail-generation/{uuid}/{slug}.sail`), never the unexpanded `$TMPDIR` variable.
 
-**Pass 3 agents MUST follow `guidelines/logic-guidelines/record-link-patterns.md`** when
-writing grid title links. Use `a!recordLink(recordType: ..., identifier: fv!identifier)` —
-the `record` parameter does not exist.
+**Note:** Grid title links use `a!recordLink(recordType: ..., identifier: fv!identifier)` —
+the `record` parameter does not exist. See `guidelines/logic-guidelines/record-link-patterns.md`.

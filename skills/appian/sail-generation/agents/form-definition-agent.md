@@ -1,3 +1,8 @@
+---
+model: haiku
+description: "Writes form definition JSON from a self-contained schema. No SAIL, no MCP — pure JSON authoring + CLI."
+---
+
 # Form Definition Agent
 
 ## Role
@@ -44,16 +49,21 @@ echo "${OUT%-scaffold.sail}.sail"       # this absolute path is what you report 
 
 Must PASS. If it fails, report as a generator bug.
 
-## Step 3 — Decide: Done or Need Pass 3?
+## Step 3 — Report Result
 
-Read the user's original request. Does it require ANY of these?
+Report the file path. Then check: does the user's request include requirements beyond
+what the definition schema can express?
+
+Things the schema CANNOT express (become to-dos):
 - `showWhen` conditional fields
 - Cross-field validation
 - Domain-specific banners or warning cards
 - Edit-mode pre-population logic beyond simple initialization
 
-**If NO** → you're done. Report the file path.
-**If YES** → report the file path AND note that Pass 3 is needed. The orchestrator will dispatch the form-sail-agent.
+**If NO unmet requirements** → report the file path. Done.
+**If YES** → report the file path AND list each unmet requirement as a specific,
+actionable to-do item. Example: "TODO: Add showWhen on emergencyContact section —
+visible only when employmentType = Full-time."
 
 ## Definition JSON — Form Schema
 
@@ -104,5 +114,5 @@ Read the user's original request. Does it require ANY of these?
 Add a `"theme"` object ONLY when the user explicitly requests non-default colors (e.g. "dark mode", "branded"). Omit it entirely for the standard look. All values must be hex `#RRGGBB`. Keys: `headerBg`, `pageBg`, `cardBg`, `titleColor`, `subtitleColor`, `stampContent`. Only include keys you want to override.
 
 ## Output
-Report: file path, whether Pass 3 is needed, and if so what domain content is required.
+Report: file path, plus any unmet requirements as specific to-do items.
 Do NOT describe what was generated — no field lists, no section summaries. One line: the path.

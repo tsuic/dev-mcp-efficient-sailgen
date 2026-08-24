@@ -72,6 +72,106 @@ const ALIASES_PATH = path.join(
 );
 
 // ─── Domain concept → icon alias mapping for --auto mode ───────────────────
+// ─── Direct synonym map: exact invalid icon name → valid alias ─────────────
+// Covers common LLM-generated icon names that aren't valid Appian aliases.
+// This is checked BEFORE domain hints for exact match on the icon value itself.
+const DIRECT_SYNONYMS = {
+  "alert": "exclamation-triangle",
+  "alert-circle": "exclamation-circle",
+  "alert-triangle": "exclamation-triangle",
+  "arrow-trending-up": "level-up",
+  "average": "tachometer",
+  "avg": "tachometer",
+  "bar-chart-2": "bar-chart",
+  "calendar-clock": "calendar",
+  "chart": "bar-chart",
+  "chart-area": "area-chart",
+  "chart-bar": "bar-chart",
+  "chart-line": "line-chart",
+  "chart-pie": "pie-chart",
+  "checkmark": "check",
+  "checkmark-circle": "check-circle",
+  "clipboard-list": "clipboard",
+  "clock-history": "history",
+  "close-circle": "times-circle",
+  "coins": "dollar",
+  "conversion": "exchange",
+  "cross": "times",
+  "dashboard": "tachometer",
+  "deploy": "rocket",
+  "dollar-sign": "dollar",
+  "error": "exclamation-circle",
+  "error-rate": "exclamation-circle",
+  "errors": "exclamation-circle",
+  "failure": "times-circle",
+  "failure-rate": "times-circle",
+  "file-document": "file-text-o",
+  "gauge": "tachometer",
+  "growth": "level-up",
+  "hash": "hashtag",
+  "help": "question-circle",
+  "help-circle": "question-circle",
+  "hourglass-half": "hourglass",
+  "incident": "exclamation-circle",
+  "issue": "exclamation-circle",
+  "issue-open": "exclamation-circle",
+  "kanban": "columns",
+  "latency": "clock-o",
+  "layers": "clone",
+  "list-checks": "tasks",
+  "loader": "spinner",
+  "log": "list-alt",
+  "mail": "envelope",
+  "mean": "tachometer",
+  "median": "tachometer",
+  "metric": "tachometer",
+  "money-dollar": "dollar",
+  "notification": "bell",
+  "notifications": "bell",
+  "open-tickets": "ticket",
+  "overview": "tachometer",
+  "pending": "hourglass",
+  "people": "users",
+  "percentage": "percent",
+  "person": "user",
+  "person-circle": "user-circle",
+  "pie": "pie-chart",
+  "priority": "exclamation-circle",
+  "queue": "inbox",
+  "rate": "tachometer",
+  "ratio": "percent",
+  "refresh": "refresh",
+  "repeat": "repeat",
+  "report": "file-text-o",
+  "reports": "file-text-o",
+  "resolved": "check-circle",
+  "response-time": "clock-o",
+  "retention": "users",
+  "settings": "cog",
+  "speedometer": "tachometer",
+  "success": "check-circle",
+  "success-rate": "check-circle",
+  "target": "bullseye",
+  "throughput": "tachometer",
+  "timer": "clock-o",
+  "todo": "tasks",
+  "trending": "level-up",
+  "trending-down": "level-down",
+  "trending-up": "level-up",
+  "trophy-cup": "trophy",
+  "unassigned": "user-times",
+  "uptime": "server",
+  "urgent": "bolt",
+  "user-group": "users",
+  "users-group": "users",
+  "utilization": "tachometer",
+  "wallet": "money",
+  "warn": "exclamation-triangle",
+  "warning": "exclamation-triangle",
+  "workflow": "sitemap",
+  "x-circle": "times-circle",
+};
+
 const DOMAIN_HINTS = [
   { patterns: /user|person|people|employee|staff|team|assignee|owner|author|creator/i, aliases: ["user-circle", "user", "users"] },
   { patterns: /time|clock|hour|minute|duration|schedule|created|updated|date/i, aliases: ["clock-o", "clock", "calendar"] },
@@ -100,7 +200,7 @@ const DOMAIN_HINTS = [
   { patterns: /history|log|audit|timeline|activity|event/i, aliases: ["history", "clock-o", "list-alt"] },
   { patterns: /deploy|release|rocket|launch|ship|publish/i, aliases: ["rocket", "paper-plane", "cloud-upload"] },
   { patterns: /server|uptime|cpu|memory|system|infrastructure/i, aliases: ["server", "database", "hdd-o"] },
-  { patterns: /revenue|sales|deal|pipeline|quota|growth/i, aliases: ["dollar", "line-chart", "trending-up"] },
+  { patterns: /revenue|sales|deal|pipeline|quota|growth/i, aliases: ["dollar", "line-chart", "level-up"] },
   { patterns: /headcount|hire|recruit|workforce|employee|onboard/i, aliases: ["users", "user-plus", "id-badge"] },
   { patterns: /open|unassign|pending|queue|backlog|waiting/i, aliases: ["inbox", "hourglass", "clock-o"] },
   { patterns: /close|resolve|complete|finish|done|win/i, aliases: ["check-circle", "trophy", "thumbs-up"] },
@@ -151,6 +251,13 @@ function findPlaceholders(content, validAliases) {
 
 // ─── Infer best icon from surrounding line context ─────────────────────────
 function inferIcon(lineText, validAliases) {
+  // First: check if the icon value itself is a direct synonym
+  const lower = lineText.trim().toLowerCase();
+  if (DIRECT_SYNONYMS[lower] && validAliases.has(DIRECT_SYNONYMS[lower])) {
+    return DIRECT_SYNONYMS[lower];
+  }
+
+  // Second: match against domain concept patterns
   for (const hint of DOMAIN_HINTS) {
     if (hint.patterns.test(lineText)) {
       // Return the first alias that's actually in the valid set
@@ -162,7 +269,6 @@ function inferIcon(lineText, validAliases) {
   // Check a few lines of context concepts that commonly appear near icons
   return null; // fallback: no match
 }
-
 // ─── Main ──────────────────────────────────────────────────────────────────
 function main() {
   const args = rawArgs;
@@ -209,46 +315,34 @@ function main() {
     process.exit(0);
   }
 
-  // --auto mode: infer icons from context
+  // --auto mode: resolve icons by concept name (direct synonym or domain pattern match)
   if (args[1] === "--auto") {
     const lines = content.split("\n");
     for (const placeholder of placeholders) {
       const lineIdx = placeholder.line - 1;
       let icon = null;
 
-      // If the placeholder has a concept hint (e.g. "circle:revenue"), use it directly
+      // Resolve from the icon value itself (concept declared at define time)
       if (placeholder.concept) {
         icon = inferIcon(placeholder.concept, validAliases);
       }
 
-      // Fall back to line context if no concept or concept didn't match
-      if (!icon) {
-        const contextStart = Math.max(0, lineIdx - 15);
-        const contextEnd = Math.min(lines.length - 1, lineIdx + 15);
-        const contextText = lines.slice(contextStart, contextEnd + 1).join(" ");
-        icon = inferIcon(contextText, validAliases);
-      }
       if (icon) {
-        // Replace the invalid icon value with the resolved valid alias
         lines[lineIdx] = lines[lineIdx].replace(`"${placeholder.concept}"`, `"${icon}"`);
         result.replacements.push({ line: placeholder.line, from: placeholder.concept, to: icon });
         result.resolved++;
       } else {
-        // Use a safe generic fallback
+        // Unresolvable — use safe generic fallback
         const fallback = "circle-o";
-        if (validAliases.has(fallback)) {
-          lines[lineIdx] = lines[lineIdx].replace(`"${placeholder.concept}"`, `"${fallback}"`);
-          result.replacements.push({ line: placeholder.line, from: placeholder.concept, to: fallback, note: "fallback" });
-          result.resolved++;
-        } else {
-          result.errors.push({ line: placeholder.line, error: "No matching icon found and no fallback available" });
-        }
+        lines[lineIdx] = lines[lineIdx].replace(`"${placeholder.concept}"`, `"${fallback}"`);
+        result.replacements.push({ line: placeholder.line, from: placeholder.concept, to: fallback, note: "fallback" });
+        result.resolved++;
       }
     }
     content = lines.join("\n");
     fs.writeFileSync(sailFile, content, "utf-8");
     console.log(JSON.stringify(result, null, 2));
-    process.exit(result.errors.length > 0 ? 1 : 0);
+    process.exit(0);
   }
 
   // Manual mode: concept:alias pairs mapped to placeholders in order

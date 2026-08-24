@@ -13,8 +13,8 @@ layout, component), read and follow the orchestrator:
 **`skills/appian/sail-generation/agents/orchestrator.md`**
 
 That file contains the full pipeline: classify → dispatch specialist → define JSON →
-scaffold SAIL → validate → resolve icons → deploy. It is the single source of truth
-for generation logic, shared across platforms.
+scaffold SAIL → validate → resolve icons → deploy → summarize to-dos. It is the single
+source of truth for generation logic, shared across platforms.
 
 Everything below covers only Kiro-specific platform mechanics.
 
@@ -46,13 +46,6 @@ The pipeline writes output to `$TMPDIR/sail-generation/{uuid}/`. This is outside
 the workspace — do NOT use `read_file` or workspace file tools on it. Use
 `execute_bash cat` if you need to inspect the file, or pass the path directly to
 MCP `expressionFilePath` parameters.
-
-### Writing large SAIL files (workspace staging)
-
-When Pass 3 edits are needed and you use `--output-dir` for workspace staging:
-- Write location: `.kiro/tmp/sail-generation/{uuid}/{slug}-scaffold.sail`
-- Use `fs_write` for the first ~50 lines, then `fs_append` for subsequent chunks
-- Clean up `.kiro/tmp/` after deploying
 
 ### Output path for deploy
 

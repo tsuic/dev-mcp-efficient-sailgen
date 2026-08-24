@@ -1,3 +1,8 @@
+---
+model: sonnet
+description: "Pass 3 SAIL editing for forms — adds validation logic, conditional visibility, saveInto chains, and domain rules."
+---
+
 # Form SAIL Agent
 
 ## Role
@@ -5,6 +10,10 @@ Add domain-specific SAIL content to a scaffolded form `.sail` file. You ONLY edi
 
 ## What You Receive
 UUID, file path to the scaffolded `.sail` file, user request, and a description of what domain content is needed (from the definition agent).
+
+## CRITICAL: Read Before Edit
+**You MUST read the `.sail` file BEFORE making any edits.** The Edit tool will reject
+changes to files you haven't read. Always `Read` the full file first, then apply edits.
 
 ## What You Do
 Edit the existing `.sail` file to add ONLY:

@@ -46,7 +46,7 @@ The agent dispatch table maps each page type (form, wizard, grid, dashboard, rec
 
 - The LLM's output is a compact JSON object (typically 30–80 lines) rather than 100–300 lines of SAIL
 - Sub-agents receive only the guidelines relevant to their page type via `contextFiles`
-- The orchestrator never reads the generated `.sail` file into context unless Pass 3 editing is needed
+- The orchestrator never reads the generated `.sail` file into context
 - Total tool calls for a generation: 3–4 (dispatch + icon-resolve + deploy)
 
 ### Claude Code compatibility
@@ -134,19 +134,22 @@ The same pipeline works under Claude Code via the `.claude/skills/appian/SKILL.m
 
 ## Supported page types
 
-| Type | Definition agent | Renderer | Pass 3 agent (if needed) |
-|---|---|---|---|
-| Form | `form-definition-agent.md` | `templates/form.js` | `form-sail-agent.md` |
-| Wizard | `wizard-definition-agent.md` | `templates/wizard.js` | `wizard-sail-agent.md` |
-| Grid | `grid-definition-agent.md` | `templates/grid.js` | `sail-coder.md` |
-| Dashboard | `dashboard-definition-agent.md` | `templates/dashboard.js` | `sail-coder.md` |
-| Record View | `record-view-definition-agent.md` | `templates/record-view.js` | `sail-coder.md` |
-| Pane | `pane-definition-agent.md` | `templates/pane.js` | `pane-sail-agent.md` |
-| Layout | `custom-ui-planner.md` | `templates/layout.js` | — |
-| Component | `component-agent.md` | `templates/component.js` | routes to `sail-coder.md` if outside schema |
-| Display | `sail-coder.md` | (hand-written SAIL) | — |
+| Type | Definition agent | Renderer |
+|---|---|---|
+| Form | `form-definition-agent.md` | `templates/form.js` |
+| Wizard | `wizard-definition-agent.md` | `templates/wizard.js` |
+| Grid | `grid-definition-agent.md` | `templates/grid.js` |
+| Dashboard | `dashboard-definition-agent.md` | `templates/dashboard.js` |
+| Record View | `record-view-definition-agent.md` | `templates/record-view.js` |
+| Pane | `pane-definition-agent.md` | `templates/pane.js` |
+| Layout | `custom-ui-planner.md` | `templates/layout.js` |
+| Component | `component-agent.md` | `templates/component.js` |
+| Display | `sail-coder.md` | (hand-written SAIL) |
 
-**Pass 3** is a fallback: when the JSON schema can't express something (e.g., custom interactions, complex conditional logic), the sub-agent edits the scaffold output directly. The goal is to minimize Pass 3 usage by expanding the JSON vocabulary over time.
+The pipeline stops after deterministic generation. If the user's request includes
+requirements the JSON schema can't express (e.g., conditional visibility, cross-field
+validation, custom interactions), these are reported as remaining to-dos in the deploy
+summary — they are never patched into the scaffold output.
 
 ## Architecture decisions
 

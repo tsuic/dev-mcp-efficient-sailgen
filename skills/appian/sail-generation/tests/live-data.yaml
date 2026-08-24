@@ -187,3 +187,100 @@
     - multiple steps with distinct field groupings
     - real UUID references (ITSM Ticket fields, Category/Priority record types)
     - createInterface with inputs [record, isUpdate, cancel]
+
+
+# -----------------------------------------------------------------------------
+# GRID tests — live data with export and record actions
+# -----------------------------------------------------------------------------
+
+- id: live-grid-01-itsm-ticket-list
+  type: grid
+  app: IT Service Management
+  prompt: >
+    In the "IT Service Management" app, create an interface called
+    TEST_LIVE_ITSM_Ticket_List — a records-powered grid showing ITSM Tickets
+    with the following features:
+
+    Columns:
+      - Title (primary column — clickable link to the record)
+      - Status (display name from the status relationship, shown as tag)
+      - Priority (display name from the priority relationship, shown as tag)
+      - Category (display name from the category relationship)
+      - Assigned To
+      - Created At
+
+    Grid-level features:
+      - Enable the built-in "Export to Excel" button (showExportButton)
+      - The "Assigned To" column should be EXCLUDED from the Excel export
+        (use exportWhen: false on that column) since usernames are internal
+      - Add the "New Ticket" record list action above the grid
+        (recordType!ITSM Ticket.actions.createTicket — no identifier needed)
+      - Add per-row actions for "Edit Ticket" and "Work on Ticket"
+        (both are related actions requiring fv!identifier)
+      - The grid should refresh after any record action completes
+
+    The grid data source should be the ITSM Ticket record type directly.
+    Tag colors for Status: New=ACCENT, In Progress=POSITIVE, On Hold=SECONDARY,
+    Resolved=POSITIVE, Closed=SECONDARY.
+    Tag colors for Priority: Critical=NEGATIVE, High=NEGATIVE, Medium=ACCENT,
+    Low=SECONDARY.
+  covers:
+    - live grid backed by record type data source
+    - showExportButton (built-in Excel export on records-powered grid)
+    - exportWhen false on specific column (exclude from export)
+    - recordActions on a!gridField for list action (New Ticket, no identifier)
+    - per-row a!recordActionField for related actions (Edit, Work On — with fv!identifier)
+    - refreshAfter RECORD_ACTION
+    - tag columns with tagColors for status and priority
+    - relationship display names (status, priority, category via many-to-one)
+    - a!recordLink on primary column
+    - real UUID references (ITSM Ticket record type, fields, relationships, actions)
+
+# -----------------------------------------------------------------------------
+# LAYOUT tests — process-launching links and action buttons
+# -----------------------------------------------------------------------------
+
+- id: live-layout-01-itsm-ticket-actions
+  type: record-view
+  app: IT Service Management
+  prompt: >
+    In the "IT Service Management" app, create an interface called
+    TEST_LIVE_ITSM_Ticket_Actions_View — a record summary view for
+    ITSM Ticket that prominently features process-launching actions.
+    Use the record's id field as the identifier.
+
+    Key attributes (top):
+      - Status display name (tag with colors: New=ACCENT, In Progress=POSITIVE,
+        On Hold=SECONDARY, Resolved=POSITIVE, Closed=SECONDARY)
+      - Priority display name (tag with colors: Critical=NEGATIVE, High=NEGATIVE,
+        Medium=ACCENT, Low=SECONDARY)
+      - Assigned To
+
+    Section "Ticket Details":
+      - Title
+      - Description
+      - Category display name
+      - Created At
+
+    After the sections, include a layout block with these elements stacked
+    vertically (NOT side-by-side — each on its own row):
+      1. An a!recordActionField displaying the "Edit Ticket" and "Work on Ticket"
+         related actions in TOOLBAR style for this specific record (using rv!identifier)
+      2. A button labeled "Escalate to Manager" that launches an unattended process
+         (use a!startProcess with cons!ITSM_ESCALATE_PM and pass the ticket ID as
+         a parameter named "ticketId" with value rv!identifier)
+      3. A link field with a process link labeled "Transfer Ownership" that uses
+         a!startProcessLink to launch cons!ITSM_TRANSFER_PM with processParameters
+         ticketId: rv!identifier, and bannerMessage "Ownership transferred successfully"
+  covers:
+    - live record-view (live variant agent)
+    - recordActionField leaf with actionRef and identifier (Edit Ticket, Work on Ticket)
+    - button leaf with action.type startProcess (unattended Escalate)
+    - linkField leaf with linkType startProcess (attended Transfer via a!startProcessLink)
+    - processModel constant references (cons!ITSM_ESCALATE_PM, cons!ITSM_TRANSFER_PM)
+    - processParameters passing record identifier
+    - bannerMessage on startProcessLink
+    - tag-type key attributes (status, priority with color maps)
+    - relationship display name fields (status, priority, category)
+    - layout-tree after sections (recordActionField + button + linkField)
+    - real UUID references (ITSM Ticket, actions, fields, relationships)

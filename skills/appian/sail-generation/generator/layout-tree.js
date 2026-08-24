@@ -43,6 +43,24 @@
 
 const { toSailValue, renderTagColorExpr } = require("./templates/grid");
 
+/**
+ * Normalize a processParameters value to a valid SAIL expression.
+ * Bare identifiers (no `!`, no quotes, no parens, no dots, no brackets)
+ * are auto-prefixed with `local!` — a bare word is never valid SAIL in this
+ * context. Values that already contain SAIL qualifiers are passed through.
+ */
+function normalizeSailExpr(value) {
+  if (typeof value !== "string") return String(value);
+  // Already qualified (local!, ri!, cons!, pv!, pp!, fn!, rule!, recordType!, etc.)
+  if (/[!'"()\[\].]/.test(value)) return value;
+  // Numeric literal
+  if (/^\d+$/.test(value)) return value;
+  // Boolean keywords
+  if (value === "true" || value === "false" || value === "null") return value;
+  // Bare identifier — prefix with local!
+  return `local!${value}`;
+}
+
 // =============================================================================
 // LEAF REGISTRY
 // =============================================================================
@@ -481,22 +499,50 @@ registerLeaf("richTextBlock", {
 //            { "label": "Secondary", "style": "OUTLINE" }
 //          ]}
 //
+// ACTION SUPPORT (wired process launching):
+//   Single button with action:
+//   { "leaf": "button", "label": "Archive Records", "action": {
+//       "type": "startProcess",
+//       "processModel": "cons!ARCHIVE_PM",
+//       "processParameters": { "ids": "local!selectedIds" }
+//   }}
+//
+//   action.type values:
+//     "startProcess" — renders a!startProcess() in saveInto (unattended, background)
+//       Requires: processModel (string). Optional: processParameters (object).
+//     "startProcessLink" — renders link: a!startProcessLink() (attended, shows forms)
+//       Requires: processModel (string). Optional: processParameters (object), bannerMessage.
+//
 // Props:
 //   label:  button text (required if no "buttons" array)
 //   style:  "SOLID" | "OUTLINE" | "LINK" (default: "SOLID")
 //   color:  "ACCENT" | "POSITIVE" | "NEGATIVE" | "SECONDARY" (default: "ACCENT")
 //   size:   "STANDARD" | "SMALL" (default: "STANDARD")
 //   align:  "START" | "CENTER" | "END" (default: "START")
-//   buttons: array of { label, style?, color?, size? } for multi-button groups
+//   action: { type, processModel, processParameters?, bannerMessage? }
+//   buttons: array of { label, style?, color?, size?, action? } for multi-button groups
 // ---------------------------------------------------------------------------
 const BUTTON_STYLES = ["SOLID", "OUTLINE", "LINK"];
 const BUTTON_COLORS = ["ACCENT", "NEGATIVE", "SECONDARY"];
 const BUTTON_SIZES = ["STANDARD", "SMALL"];
 const BUTTON_ALIGNS = ["START", "CENTER", "END"];
+const BUTTON_ACTION_TYPES = ["startProcess", "startProcessLink"];
+
+function validateButtonAction(action, context, errors) {
+  if (!action.type || !BUTTON_ACTION_TYPES.includes(action.type)) {
+    errors.push(`${context}.action: "type" must be one of [${BUTTON_ACTION_TYPES.join(", ")}], got: ${JSON.stringify(action.type)}`);
+  }
+  if (!action.processModel || typeof action.processModel !== "string") {
+    errors.push(`${context}.action: "processModel" is required (e.g. "cons!MY_PROCESS_MODEL")`);
+  }
+  if (action.processParameters !== undefined && (typeof action.processParameters !== "object" || action.processParameters === null || Array.isArray(action.processParameters))) {
+    errors.push(`${context}.action: "processParameters" must be an object mapping parameter names to SAIL expressions`);
+  }
+}
 
 registerLeaf("button", {
   validate(node, context, errors) {
-    const buttons = node.buttons || [{ label: node.label, style: node.style, color: node.color, size: node.size }];
+    const buttons = node.buttons || [{ label: node.label, style: node.style, color: node.color, size: node.size, action: node.action }];
     if (!node.label && !node.buttons) {
       errors.push(`${context}: "label" is required (or provide a "buttons" array)`);
     }
@@ -515,17 +561,53 @@ registerLeaf("button", {
       if (btn.size && !BUTTON_SIZES.includes(btn.size)) {
         errors.push(`${bc}: "size" must be one of [${BUTTON_SIZES.join(", ")}], got: ${JSON.stringify(btn.size)}`);
       }
+      if (btn.action) {
+        validateButtonAction(btn.action, bc, errors);
+      }
     });
   },
   render(node, indent) {
     const i = indent;
-    const buttons = node.buttons || [{ label: node.label, style: node.style, color: node.color, size: node.size }];
+    const buttons = node.buttons || [{ label: node.label, style: node.style, color: node.color, size: node.size, action: node.action }];
     const align = node.align || "START";
 
     const btnsSail = buttons.map((btn) => {
       const style = btn.style || "SOLID";
       const color = btn.color || "ACCENT";
       const size = btn.size || "STANDARD";
+
+      if (btn.action && btn.action.type === "startProcess") {
+        // Unattended process — a!startProcess() in saveInto
+        const params = btn.action.processParameters
+          ? Object.entries(btn.action.processParameters)
+              .map(([k, v]) => `${i}          ${k}: ${normalizeSailExpr(v)}`)
+              .join(",\n")
+          : null;
+        const paramsBlock = params
+          ? `,\n${i}        processParameters: {\n${params}\n${i}        }`
+          : "";
+        return `${i}    a!buttonWidget(\n${i}      label: ${toSailValue(btn.label)},\n${i}      style: "${style}",\n${i}      color: "${color}",\n${i}      size: "${size}",\n${i}      saveInto: a!startProcess(\n${i}        processModel: ${btn.action.processModel}${paramsBlock},\n${i}        onSuccess: {},\n${i}        onError: {}\n${i}      )\n${i}    )`;
+      }
+
+      if (btn.action && btn.action.type === "startProcessLink") {
+        // Attended process — a!startProcessLink is a LINK type, not a button action.
+        // Render as a!linkField wrapping a!startProcessLink (buttons can't hold links).
+        const params = btn.action.processParameters
+          ? Object.entries(btn.action.processParameters)
+              .map(([k, v]) => `${i}          ${k}: ${normalizeSailExpr(v)}`)
+              .join(",\n")
+          : null;
+        const paramsBlock = params
+          ? `,\n${i}        processParameters: {\n${params}\n${i}        }`
+          : "";
+        const bannerLine = btn.action.bannerMessage
+          ? `,\n${i}        bannerMessage: ${toSailValue(btn.action.bannerMessage)}`
+          : "";
+        // Render as a styled link that visually resembles a button action
+        return `${i}    a!linkField(\n${i}      labelPosition: "COLLAPSED",\n${i}      links: {\n${i}        a!startProcessLink(\n${i}          label: ${toSailValue(btn.label)},\n${i}          processModel: ${btn.action.processModel}${paramsBlock}${bannerLine}\n${i}        )\n${i}      }\n${i}    )`;
+      }
+
+      // Default: no action wired
       return `${i}    a!buttonWidget(\n${i}      label: ${toSailValue(btn.label)},\n${i}      style: "${style}",\n${i}      color: "${color}",\n${i}      size: "${size}",\n${i}      saveInto: {}\n${i}    )`;
     }).join(",\n");
 
@@ -1024,7 +1106,7 @@ registerLeaf("horizontalLine", {
 // structural correctness of the actions array.
 //
 // Each action item requires:
-//   - actionRef: the full recordType!{uuid}Name.actions.key reference
+//   - actionRef: UUID-qualified reference: recordType!{rtUuid}Name.actions.{actionUuid}key
 //   - identifier (optional): expression for the record identifier; required
 //     for related actions, omitted for list actions
 // ---------------------------------------------------------------------------
@@ -1041,7 +1123,9 @@ registerLeaf("recordActionField", {
     node.actions.forEach((action, ai) => {
       const ac = `${context}.actions[${ai}]`;
       if (!action.actionRef || typeof action.actionRef !== "string") {
-        errors.push(`${ac}: "actionRef" is required (e.g. "recordType!{uuid}Name.actions.key")`);
+        errors.push(`${ac}: "actionRef" is required (e.g. "recordType!{rtUuid}Name.actions.{actionUuid}key")`);
+      } else if (!/\.actions\.\{[0-9a-f-]+\}/.test(action.actionRef)) {
+        errors.push(`${ac}: "actionRef" must include the action UUID — format: "recordType!{rtUuid}Name.actions.{actionUuid}key" (got: ${JSON.stringify(action.actionRef)}). Call listRecordTypeActions to get the action UUID.`);
       }
     });
     if (node.style && !RECORD_ACTION_STYLES.includes(node.style)) {
@@ -1054,15 +1138,25 @@ registerLeaf("recordActionField", {
       errors.push(`${context}: "openActionsIn" must be one of [${RECORD_ACTION_OPENS.join(", ")}], got: ${JSON.stringify(node.openActionsIn)}`);
     }
   },
-  render(node, indent) {
+  render(node, indent, state) {
     const i = indent;
     const style = node.style || "TOOLBAR";
     const display = node.display || "LABEL_AND_ICON";
     const openIn = node.openActionsIn || "DIALOG";
 
     const actionsStr = node.actions.map((action) => {
-      const idLine = action.identifier
-        ? `,\n${i}      identifier: ${action.identifier}`
+      let idExpr = action.identifier;
+      if (idExpr) {
+        // Normalize: rv!identifier is invalid in standalone interfaces —
+        // replace with the entity's local ID variable from dataBinding.
+        if (idExpr === "rv!identifier" && state && state.entityName) {
+          const name = state.entityName;
+          idExpr = "local!" + name.charAt(0).toLowerCase() + name.slice(1).replace(/\s+(\w)/g, (_, c) => c.toUpperCase()) + "Id";
+        }
+        idExpr = normalizeSailExpr(idExpr);
+      }
+      const idLine = idExpr
+        ? `,\n${i}      identifier: ${idExpr}`
         : "";
       return `${i}    a!recordActionItem(\n${i}      action: '${action.actionRef}'${idLine}\n${i}    )`;
     }).join(",\n");
@@ -1088,6 +1182,12 @@ ${i})`;
 // ---------------------------------------------------------------------------
 // New leaf: linkField — displays one or more clickable links (a!linkField).
 // ---------------------------------------------------------------------------
+// Link types supported by linkField:
+//   "safe" (default)       → a!safeLink (external URL)
+//   "startProcess"         → a!startProcessLink (launches PM with chained forms)
+//   "record"              → a!recordLink (navigates to a record view)
+const LINK_TYPES = ["safe", "startProcess", "record"];
+
 registerLeaf("linkField", {
   validate(node, context, errors) {
     if (!Array.isArray(node.links) || node.links.length === 0) {
@@ -1095,7 +1195,29 @@ registerLeaf("linkField", {
       return;
     }
     node.links.forEach((link, li) => {
-      if (!link.text) errors.push(`${context}.links[${li}]: "text" is required`);
+      const lc = `${context}.links[${li}]`;
+      if (!link.text) errors.push(`${lc}: "text" is required`);
+      const linkType = link.linkType || "safe";
+      if (!LINK_TYPES.includes(linkType)) {
+        errors.push(`${lc}: "linkType" must be one of [${LINK_TYPES.join(", ")}], got: ${JSON.stringify(link.linkType)}`);
+      }
+      if (linkType === "startProcess") {
+        if (!link.processModel || typeof link.processModel !== "string") {
+          errors.push(`${lc}: "processModel" is required for linkType "startProcess" (e.g. "cons!MY_PROCESS_MODEL")`);
+        }
+        // processParameters is optional (object or omitted)
+        if (link.processParameters !== undefined && (typeof link.processParameters !== "object" || link.processParameters === null || Array.isArray(link.processParameters))) {
+          errors.push(`${lc}: "processParameters" must be an object mapping parameter names to SAIL expressions`);
+        }
+      }
+      if (linkType === "record") {
+        if (!link.recordType || typeof link.recordType !== "string") {
+          errors.push(`${lc}: "recordType" is required for linkType "record" (e.g. "recordType!{uuid}Name")`);
+        }
+        if (!link.identifier || typeof link.identifier !== "string") {
+          errors.push(`${lc}: "identifier" is required for linkType "record" (e.g. "fv!identifier" or "ri!recordId")`);
+        }
+      }
     });
   },
   render(node, indent) {
@@ -1103,9 +1225,28 @@ registerLeaf("linkField", {
     const labelLine = node.label
       ? `${i}  label: "${node.label}",\n`
       : `${i}  labelPosition: "COLLAPSED",\n`;
-    const linksStr = node.links.map((link) =>
-      `${i}    a!safeLink(label: ${toSailValue(link.text)}, uri: ${toSailValue(link.uri || "#")})`
-    ).join(",\n");
+    const linksStr = node.links.map((link) => {
+      const linkType = link.linkType || "safe";
+      if (linkType === "startProcess") {
+        const params = link.processParameters
+          ? Object.entries(link.processParameters)
+              .map(([k, v]) => `${i}        ${k}: ${normalizeSailExpr(v)}`)
+              .join(",\n")
+          : null;
+        const paramsBlock = params
+          ? `,\n${i}      processParameters: {\n${params}\n${i}      }`
+          : "";
+        const bannerLine = link.bannerMessage
+          ? `,\n${i}      bannerMessage: ${toSailValue(link.bannerMessage)}`
+          : "";
+        return `${i}    a!startProcessLink(\n${i}      label: ${toSailValue(link.text)},\n${i}      processModel: ${link.processModel}${paramsBlock}${bannerLine}\n${i}    )`;
+      }
+      if (linkType === "record") {
+        return `${i}    a!recordLink(\n${i}      label: ${toSailValue(link.text)},\n${i}      recordType: '${link.recordType}',\n${i}      identifier: ${link.identifier}\n${i}    )`;
+      }
+      // Default: safe link
+      return `${i}    a!safeLink(label: ${toSailValue(link.text)}, uri: ${toSailValue(link.uri || "#")})`;
+    }).join(",\n");
     return `${i}a!linkField(\n${labelLine}${i}  links: {\n${linksStr}\n${i}  }\n${i})`;
   },
   renderSkeleton(node, indent) {
@@ -1128,9 +1269,10 @@ const CARD_GROUP_WIDTHS = ["EXTRA_NARROW", "NARROW", "NARROW_PLUS", "MEDIUM", "M
 // or a!cardGroupLayout as descendants. Recursively scans a node's container
 // children and returns the first offending container type name, or null.
 const SIDE_BY_SIDE_FORBIDDEN = new Set(["card", "columns", "cardGroup"]);
+
 function hasForbiddenSideBySideDescendant(node) {
-  if (!node || !node.layout) return null;
-  if (SIDE_BY_SIDE_FORBIDDEN.has(node.layout)) return node.layout;
+  if (!node || typeof node !== "object") return null;
+  if (node.layout && SIDE_BY_SIDE_FORBIDDEN.has(node.layout)) return node.layout;
   for (const child of node.items || []) {
     const hit = hasForbiddenSideBySideDescendant(child);
     if (hit) return hit;

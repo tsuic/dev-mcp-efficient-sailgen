@@ -29,7 +29,7 @@ export function checkIcons(lines) {
                     line: lineIndex + 1,
                     col: match.index + 1,
                     snippet: match[0],
-                    message: `Unknown icon alias "${iconValue}" for ${paramName}. Verify against rich-text-icon-aliases.md.`,
+                    message: `Unknown icon alias "${iconValue}" for ${paramName}. Run resolve-icons.js --auto or use a valid alias from rich-text-icon-aliases.md.`,
                 });
             }
         }

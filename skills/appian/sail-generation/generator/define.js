@@ -553,10 +553,72 @@ function loadIconAliases() {
 }
 
 function validateIcon(icon, context, errors) {
-  // Icons are validated/resolved by resolve-icons.js after scaffolding.
-  // define.js accepts any string — the agent writes its intent (e.g. "revenue",
-  // "open-tickets", "deployment") and resolve-icons maps it to a valid alias.
-  return;
+  if (!icon || typeof icon !== "string") return;
+  const aliases = loadIconAliases();
+  if (aliases.size === 0) return; // can't validate — alias file not loaded
+
+  // Already a valid Appian icon alias — nothing to do
+  if (aliases.has(icon)) return;
+
+  // Check if resolve-icons.js can handle it via DIRECT_SYNONYMS or DOMAIN_HINTS.
+  // Import the synonym table from resolve-icons so define.js stays in sync.
+  let resolvable = false;
+  try {
+    const resolveIconsPath = path.join(__dirname, "resolve-icons.js");
+    // Read the file to extract DIRECT_SYNONYMS keys (avoid executing the script)
+    const src = fs.readFileSync(resolveIconsPath, "utf-8");
+    const synMatch = src.match(/const DIRECT_SYNONYMS\s*=\s*\{([^}]+)\}/s);
+    if (synMatch) {
+      const keys = synMatch[1].match(/"([^"]+)"/g);
+      if (keys) {
+        const synonymKeys = new Set(keys.filter((_, i) => i % 2 === 0).map(k => k.replace(/"/g, "")));
+        if (synonymKeys.has(icon.toLowerCase())) resolvable = true;
+      }
+    }
+  } catch { /* ignore — fall through to warning */ }
+
+  if (!resolvable) {
+    // Check DOMAIN_HINTS patterns inline (lightweight check)
+    const domainPatterns = [
+      /user|person|people|employee|staff|team|assignee|owner|author|creator/i,
+      /time|clock|hour|minute|duration|schedule|created|updated|date|latency|response/i,
+      /money|dollar|price|cost|payment|finance|budget|amount|currency/i,
+      /chart|metric|graph|analytics|dashboard|performance|kpi|gauge|average|avg|mean|median|rate|ratio|throughput|utilization/i,
+      /warning|alert|exclamation|caution|danger|error|failure|incident/i,
+      /ticket|issue|bug|incident|request|case/i,
+      /deploy|release|rocket|launch|ship|publish/i,
+      /server|uptime|cpu|memory|system|infrastructure/i,
+      /open|unassign|pending|queue|backlog|waiting/i,
+      /check|success|complete|done|approve|verify|resolved/i,
+      /star|favorite|bookmark|important|priority/i,
+      /critical|urgent|high|severe|escalat/i,
+      /search|find|lookup|magnify|filter/i,
+      /edit|pencil|modify|update|change|write/i,
+      /info|information|detail|about|help/i,
+      /history|log|audit|timeline|activity|event/i,
+      /document|file|report|paper|clipboard|form|attachment/i,
+      /security|shield|lock|protect|guard|auth|permission/i,
+      /email|mail|envelope|message|communication|contact/i,
+      /comment|chat|discuss|conversation|note|remark|reply/i,
+      /location|map|address|building|office|place|geo/i,
+      /tag|label|category|classify|group/i,
+      /revenue|sales|deal|pipeline|quota|growth/i,
+      /headcount|hire|recruit|workforce|onboard/i,
+      /close|resolve|finish|done|win/i,
+      /setting|config|gear|cog|wrench|preference|option/i,
+      /phone|call|mobile|telephone/i,
+      /travel|plane|flight|car|vehicle|trip|transport/i,
+      /link|chain|connect|attach|reference/i,
+      /resolution|solve|fix|repair|remedy|answer/i,
+    ];
+    for (const p of domainPatterns) {
+      if (p.test(icon)) { resolvable = true; break; }
+    }
+  }
+
+  if (!resolvable) {
+    errors.push(`${context}: icon "${icon}" is not a valid Appian alias and cannot be resolved by resolve-icons.js. Use a valid alias from rich-text-icon-aliases.md or a descriptive keyword that matches a known domain concept.`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -615,6 +677,9 @@ function validateGridColumnsAndRows(columns, rows, context, errors) {
     if (col.align && !GRID_ALIGNS.includes(col.align)) {
       errors.push(`${cc}: "align" must be one of [${GRID_ALIGNS.join(", ")}], got: ${JSON.stringify(col.align)}`);
     }
+    if (col.exportWhen !== undefined && typeof col.exportWhen !== "boolean") {
+      errors.push(`${cc}: "exportWhen" must be a boolean (false to exclude from export), got: ${JSON.stringify(col.exportWhen)}`);
+    }
     if (col.type === "tag") {
       if (!col.tagColors || typeof col.tagColors !== "object" || Object.keys(col.tagColors).length === 0) {
         errors.push(`${cc}: type "tag" requires a non-empty "tagColors" object`);
@@ -669,11 +734,130 @@ function validateGridColumnsAndRows(columns, rows, context, errors) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Live grid validation — columns with fieldRef, dataSource, no rows required
+// ---------------------------------------------------------------------------
+
+function validateLiveGridDefinition(def, errors) {
+  const ds = def.dataSource;
+  if (!ds || typeof ds !== "object") {
+    errors.push('"dataSource" is required for live grids and must be an object');
+    return;
+  }
+  if (!ds.recordType || typeof ds.recordType !== "string") {
+    errors.push('"dataSource.recordType" is required (e.g. "recordType!{uuid}Name")');
+  } else {
+    validateFieldRefShape(ds.recordType, "dataSource.recordType", errors);
+  }
+  if (!ds.fields || typeof ds.fields !== "object" || Object.keys(ds.fields).length === 0) {
+    errors.push('"dataSource.fields" must be a non-empty object mapping aliases to field references');
+  } else {
+    Object.entries(ds.fields).forEach(([alias, ref]) => {
+      validateFieldRefShape(ref, `dataSource.fields["${alias}"]`, errors);
+    });
+  }
+  if (ds.relationships && typeof ds.relationships === "object") {
+    Object.entries(ds.relationships).forEach(([alias, ref]) => {
+      validateFieldRefShape(ref, `dataSource.relationships["${alias}"]`, errors);
+    });
+  }
+
+  // Columns — required, but no rows
+  if (!Array.isArray(def.columns) || def.columns.length === 0) {
+    errors.push('"columns" must be a non-empty array for live grids');
+    return;
+  }
+
+  const seenNames = new Set();
+  let primaryCount = 0;
+  const validAliases = new Set(Object.keys(ds.fields || {}));
+
+  def.columns.forEach((col, ci) => {
+    const cc = `columns[${ci}]`;
+    if (!col.name || !/^[a-zA-Z][a-zA-Z0-9]*$/.test(col.name)) {
+      errors.push(`${cc}: "name" must be a camelCase identifier, got: ${JSON.stringify(col.name)}`);
+    } else {
+      if (seenNames.has(col.name)) errors.push(`${cc}: duplicate column name "${col.name}"`);
+      seenNames.add(col.name);
+    }
+    if (!col.label) errors.push(`${cc}: "label" is required`);
+    if (!["primary", "tag", "text"].includes(col.type)) {
+      errors.push(`${cc}: "type" must be one of [primary, tag, text] for live grids, got: ${JSON.stringify(col.type)}`);
+    }
+    if (col.type === "primary") primaryCount++;
+    if (!col.width || !GRID_WIDTHS.includes(col.width)) {
+      errors.push(`${cc}: "width" is required and must be one of [${GRID_WIDTHS.join(", ")}], got: ${JSON.stringify(col.width)}`);
+    }
+    if (!col.fieldRef || typeof col.fieldRef !== "string") {
+      errors.push(`${cc}: "fieldRef" is required for live grid columns (alias from dataSource.fields)`);
+    } else if (!validAliases.has(col.fieldRef)) {
+      errors.push(`${cc}: "fieldRef" "${col.fieldRef}" does not match any alias in dataSource.fields`);
+    }
+    if (col.type === "tag") {
+      if (!col.tagColors || typeof col.tagColors !== "object" || Object.keys(col.tagColors).length === 0) {
+        errors.push(`${cc}: type "tag" requires a non-empty "tagColors" object`);
+      } else {
+        Object.entries(col.tagColors).forEach(([value, color]) => {
+          if (!isValidTagColor(color)) {
+            errors.push(`${cc}: tagColors["${value}"] must be one of [${TAG_COLORS.join(", ")}] or a hex color, got: ${JSON.stringify(color)}`);
+          }
+        });
+      }
+    }
+    if (col.exportWhen !== undefined && typeof col.exportWhen !== "boolean") {
+      errors.push(`${cc}: "exportWhen" must be a boolean, got: ${JSON.stringify(col.exportWhen)}`);
+    }
+    // Validate computed column $expr objects
+    if (col.computed !== undefined) {
+      const { validateComputedValue } = require("./templates/expr-primitives");
+      const computedErrors = validateComputedValue(col.computed, `${cc}.computed`, validAliases);
+      errors.push(...computedErrors);
+    }
+  });
+
+  if (primaryCount !== 1) {
+    errors.push(`grid: exactly one column must have "type": "primary", found ${primaryCount}`);
+  }
+
+  // Sort validation
+  if (def.sort) {
+    if (!def.sort.field || typeof def.sort.field !== "string") {
+      errors.push('"sort.field" must be a string alias from dataSource.fields');
+    } else if (!validAliases.has(def.sort.field)) {
+      errors.push(`"sort.field" "${def.sort.field}" does not match any alias in dataSource.fields`);
+    }
+    if (def.sort.ascending === undefined || typeof def.sort.ascending !== "boolean") {
+      errors.push('"sort.ascending" must be a boolean');
+    }
+  }
+
+  // userFilters validation
+  if (def.userFilters) {
+    if (!Array.isArray(def.userFilters)) {
+      errors.push('"userFilters" must be an array of record type filter references');
+    } else {
+      def.userFilters.forEach((f, fi) => {
+        if (typeof f !== "string") {
+          errors.push(`userFilters[${fi}]: must be a string (e.g. "recordType!{uuid}Name.filters.status")`);
+        } else if (!f.includes(".filters.")) {
+          errors.push(`userFilters[${fi}]: must contain ".filters." (e.g. "recordType!{uuid}Name.filters.status")`);
+        }
+      });
+    }
+  }
+}
+
 function validateGridDefinition(def, errors) {
   // Skeleton grids only need title/entityName (already validated at top level) —
   // no columns/rows required yet. Mirrors the dashboard section skeleton bypass.
   if (def.skeleton === true) return;
-  validateGridColumnsAndRows(def.columns, def.rows, "grid", errors);
+
+  // Live grids (with dataSource) don't need sample rows — they query live records.
+  if (def.dataSource) {
+    validateLiveGridDefinition(def, errors);
+  } else {
+    validateGridColumnsAndRows(def.columns, def.rows, "grid", errors);
+  }
   if (def.filters) {
     if (!Array.isArray(def.filters)) {
       errors.push('"filters" must be an array');
@@ -700,6 +884,33 @@ function validateGridDefinition(def, errors) {
       });
     }
   }
+
+  // showExportButton — boolean, only functional on records-powered grids
+  if (def.showExportButton !== undefined && typeof def.showExportButton !== "boolean") {
+    errors.push('"showExportButton" must be a boolean');
+  }
+
+  // recordActions — array of { actionRef, identifier? } for records-powered grids
+  if (def.recordActions) {
+    if (!Array.isArray(def.recordActions)) {
+      errors.push('"recordActions" must be an array of { actionRef, identifier? }');
+    } else {
+      def.recordActions.forEach((action, ai) => {
+        const ac = `recordActions[${ai}]`;
+        if (!action.actionRef || typeof action.actionRef !== "string") {
+          errors.push(`${ac}: "actionRef" is required (e.g. "recordType!{rtUuid}Name.actions.{actionUuid}key")`);
+        } else {
+          // actionRef must be UUID-qualified: recordType!{...}Name.actions.{...}key
+          if (!/\.actions\.\{[0-9a-f-]+\}/.test(action.actionRef)) {
+            errors.push(`${ac}: "actionRef" must include the action UUID — format: "recordType!{rtUuid}Name.actions.{actionUuid}key" (got: ${JSON.stringify(action.actionRef)}). Call listRecordTypeActions to get the action UUID.`);
+          }
+        }
+        if (action.identifier !== undefined && typeof action.identifier !== "boolean") {
+          errors.push(`${ac}: "identifier" must be true (for per-row actions) or omitted (for list-level actions). Raw SAIL strings like "fv!identifier" are no longer accepted.`);
+        }
+      });
+    }
+  }
 }
 
 /**
@@ -721,6 +932,12 @@ function validateDashboardFilter(filter, context, errors) {
   // value is optional for "is null" / "not null"
   if (!["is null", "not null"].includes(filter.operator) && filter.value === undefined) {
     errors.push(`${context}: "value" is required for operator "${filter.operator}"`);
+  }
+  // Validate filter value structure (reject raw SAIL strings, validate $expr objects)
+  if (filter.value !== undefined) {
+    const { validateFilterValue } = require("./templates/expr-primitives");
+    const valueErrors = validateFilterValue(filter.value, `${context}.value`);
+    errors.push(...valueErrors);
   }
 }
 
@@ -878,7 +1095,7 @@ function validateChartFields(section, context, errors, hasDataSource) {
   }
 }
 
-function validateDashboardSection(section, context, errors, hasDataSource) {
+function validateDashboardSection(section, context, errors, hasDataSource, dataSource) {
   const SECTION_TYPES = ["kpis", "chart", "grid", "columns"];
   if (!section.type || !SECTION_TYPES.includes(section.type)) {
     errors.push(`${context}: "type" must be one of [${SECTION_TYPES.join(", ")}], got: ${JSON.stringify(section.type)}`);
@@ -899,7 +1116,7 @@ function validateDashboardSection(section, context, errors, hasDataSource) {
           if (item.type === "columns") {
             errors.push(`${nested}: nested "columns" inside "columns" is not supported`);
           } else {
-            validateDashboardSection(item, nested, errors, hasDataSource);
+            validateDashboardSection(item, nested, errors, hasDataSource, dataSource);
           }
         });
       }
@@ -964,6 +1181,13 @@ function validateDashboardSection(section, context, errors, hasDataSource) {
             if (col.type === "tag" && (!col.tagColors || typeof col.tagColors !== "object" || Object.keys(col.tagColors).length === 0)) {
               errors.push(`${cc}: type "tag" requires a non-empty "tagColors" object`);
             }
+            // Validate computed column $expr objects
+            if (col.computed !== undefined) {
+              const { validateComputedValue } = require("./templates/expr-primitives");
+              const validAliases = dataSource && dataSource.fields ? new Set(Object.keys(dataSource.fields)) : null;
+              const computedErrors = validateComputedValue(col.computed, `${cc}.computed`, validAliases);
+              errors.push(...computedErrors);
+            }
           });
           if (primaryCount !== 1) {
             errors.push(`${context}: exactly one column must have "type": "primary", found ${primaryCount}`);
@@ -987,7 +1211,7 @@ function validateDashboardSection(section, context, errors, hasDataSource) {
           if (item.type === "columns") {
             errors.push(`${nested}: nested "columns" inside "columns" is not supported`);
           } else {
-            validateDashboardSection(item, nested, errors, hasDataSource);
+            validateDashboardSection(item, nested, errors, hasDataSource, dataSource);
           }
         });
       }
@@ -1004,7 +1228,7 @@ function validateDashboardDefinition(def, errors) {
       validateDashboardDataSource(def.dataSource, errors);
     }
     def.sections.forEach((section, si) => {
-      validateDashboardSection(section, `sections[${si}]`, errors, hasDataSource);
+      validateDashboardSection(section, `sections[${si}]`, errors, hasDataSource, def.dataSource);
     });
   }
 }
@@ -1593,6 +1817,20 @@ function validateRecordViewDefinition(def, errors) {
   // Cross-check titleFieldRef against valid refs
   if (def.titleFieldRef && hasDataBinding && validFieldRefs && !validFieldRefs.has(def.titleFieldRef)) {
     errors.push(`"titleFieldRef": "${def.titleFieldRef}" does not match any dataBinding.fields[].localName, dataBinding.relatedRecordData[].localName, or plain field reference already listed in dataBinding.fields`);
+  }
+
+  // editActionRef: optional record action reference for the header Edit button.
+  // When present, the scaffold renders an a!recordActionField in the header
+  // instead of the placeholder a!buttonWidget. Requires dataBinding (so
+  // rv!identifier is available for the action's identifier parameter).
+  if (def.editActionRef !== undefined) {
+    if (!hasDataBinding) {
+      errors.push('"editActionRef" requires "dataBinding" to be present — the header action needs rv!identifier to target the current record');
+    } else if (typeof def.editActionRef !== "string" || !def.editActionRef) {
+      errors.push('"editActionRef" must be a non-empty string (e.g. "recordType!{rtUuid}Name.actions.{actionUuid}editCase")');
+    } else if (!/\.actions\.\{[0-9a-f-]+\}/.test(def.editActionRef)) {
+      errors.push(`"editActionRef" must include the action UUID — format: "recordType!{rtUuid}Name.actions.{actionUuid}key" (got: ${JSON.stringify(def.editActionRef)}). Call listRecordTypeActions to get the action UUID.`);
+    }
   }
 
   // "name" only drives a real local!{name} var decl for entries WITHOUT a

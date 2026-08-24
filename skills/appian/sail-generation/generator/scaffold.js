@@ -92,6 +92,7 @@ function runFromDefinition(uuid) {
   // form/wizard carry `dataBinding` for live-data forms.
   const isRecordMode = (type === "record-view" && !!def.dataBinding) ||
                        (type === "dashboard" && !!def.dataSource) ||
+                       (type === "grid" && !!def.dataSource) ||
                        (type === "form" && !!def.dataBinding) ||
                        (type === "wizard" && !!def.dataBinding);
   const recordModeMarkerPath = path.join(outDir, "record-mode.json");
@@ -99,7 +100,27 @@ function runFromDefinition(uuid) {
 
   tryRecordEvent(uuid, "scaffold", "end");
 
-  console.log(JSON.stringify({
+  // Compute the interface inputs the orchestrator should pass to createInterface.
+  // Record-view: ri!record (typed to the record type).
+  // Form/Wizard: ri!record + ri!isUpdate + ri!cancel.
+  // The recordType value here is the SAIL reference (recordType!{uuid}Name) — the
+  // orchestrator must resolve it to the actual typeReference via getRecordType before
+  // passing to createInterface, as documented in orchestrator.md.
+  let inputs = undefined;
+  if (isRecordMode && def.dataBinding && def.dataBinding.recordType) {
+    const rt = def.dataBinding.recordType;
+    if (type === "record-view") {
+      inputs = [{ name: "record", type: rt }];
+    } else if (type === "form" || type === "wizard") {
+      inputs = [
+        { name: "record", type: rt },
+        { name: "isUpdate", type: "Boolean" },
+        { name: "cancel", type: "Boolean" },
+      ];
+    }
+  }
+
+  const result = {
     uuid,
     type,
     title,
@@ -108,7 +129,9 @@ function runFromDefinition(uuid) {
     outputPath,
     fileName,
     lines: sailContent.split("\n").length,
-  }));
+  };
+  if (inputs) result.inputs = inputs;
+  console.log(JSON.stringify(result));
 }
 
 // ---------------------------------------------------------------------------

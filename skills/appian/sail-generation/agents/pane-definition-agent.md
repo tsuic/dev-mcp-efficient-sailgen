@@ -1,3 +1,8 @@
+---
+model: haiku
+description: "Writes pane definition JSON from a self-contained schema. No SAIL, no MCP — pure JSON authoring + CLI."
+---
+
 # Pane Definition Agent
 
 ## Role
@@ -40,16 +45,19 @@ mv "$OUT" "${OUT%-scaffold.sail}.sail"  # drop the -scaffold suffix
 echo "${OUT%-scaffold.sail}.sail"       # this absolute path is what you report back
 ```
 
-## Step 3 — Done or Need Pass 3?
+## Step 3 — Report Result
 
-Does the request require:
+Report the file path. Then check: does the user's request include requirements beyond
+what the definition schema can express?
+
+Things the schema CANNOT express (become to-dos):
 - Master-detail selection wiring (clicking a row/nav item updates another pane)
 - Conditional pane content (`showWhen` based on selection state)
 - A grid/chart/kpis pane with custom logic beyond the standard schema
 - Tabs or sub-navigation within a pane
 
-**If NO** → done. Report file path.
-**If YES** → report file path + what domain content is needed. The orchestrator will dispatch `pane-sail-agent.md`.
+**If NO unmet requirements** → done. Report file path.
+**If YES** → report file path + list each unmet requirement as a specific to-do item.
 
 ## Definition JSON — Pane Schema
 
@@ -113,5 +121,5 @@ Prefer a hex color (e.g. `"#2C3E50"`) for every `tagColors` entry — it always 
 - Omit `"headerSubtitle"` for a bare pane layout with no header bar (e.g. an embedded console).
 
 ## Output
-Report: file path, whether Pass 3 is needed.
+Report: file path, plus any unmet requirements as specific to-do items.
 Do NOT describe what was generated — no pane lists, no content summaries. One line: the path.

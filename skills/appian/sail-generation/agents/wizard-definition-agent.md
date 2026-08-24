@@ -1,3 +1,8 @@
+---
+model: haiku
+description: "Writes wizard definition JSON from a self-contained schema. No SAIL, no MCP — pure JSON authoring + CLI."
+---
+
 # Wizard Definition Agent
 
 ## Role
@@ -44,17 +49,20 @@ echo "${OUT%-scaffold.sail}.sail"       # this absolute path is what you report 
 
 Must PASS. If it fails, report as a generator bug.
 
-## Step 3 — Decide: Done or Need Pass 3?
+## Step 3 — Report Result
 
-Read the user's original request. Does it require ANY of these?
+Report the file path. Then check: does the user's request include requirements beyond
+what the definition schema can express?
+
+Things the schema CANNOT express (become to-dos):
 - `showWhen` conditional fields (field B visible only when field A = X)
 - Cross-field validation (date A must be after date B)
 - Domain-specific banners or warning cards
 - `disableNextButton` beyond required-field checks
 - Custom review annotations beyond label+value
 
-**If NO** → you're done. Report the file path.
-**If YES** → report the file path AND note that Pass 3 (domain content) is needed. The orchestrator will dispatch the wizard-sail-agent.
+**If NO unmet requirements** → you're done. Report the file path.
+**If YES** → report the file path AND list each unmet requirement as a specific to-do item.
 
 ## Definition JSON — Wizard Schema
 
@@ -107,5 +115,5 @@ Read the user's original request. Does it require ANY of these?
 Add a `"theme"` object ONLY when the user explicitly requests non-default colors (e.g. "dark mode", "branded"). Omit it entirely for the standard look. All values must be hex `#RRGGBB`. Keys: `headerBg`, `pageBg`, `cardBg`, `titleColor`, `subtitleColor`, `stampContent`. Only include keys you want to override.
 
 ## Output
-Report: file path, whether Pass 3 is needed, and if so what domain content is required.
+Report: file path, plus any unmet requirements as specific to-do items.
 Do NOT describe what was generated — no step lists, no field summaries. One line: the path.

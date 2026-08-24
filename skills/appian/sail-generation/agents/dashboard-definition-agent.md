@@ -1,3 +1,8 @@
+---
+model: haiku
+description: "Writes dashboard definition JSON from a self-contained schema. No SAIL, no MCP — pure JSON authoring + CLI."
+---
+
 # Dashboard Definition Agent
 
 ## Role
@@ -44,16 +49,19 @@ mv "$OUT" "${OUT%-scaffold.sail}.sail"  # drop the -scaffold suffix
 echo "${OUT%-scaffold.sail}.sail"       # this absolute path is what you report back
 ```
 
-## Step 3 — Done or Need Pass 3?
+## Step 3 — Report Result
 
-Does the request require:
+Report the file path. Then check: does the user's request include requirements beyond
+what the definition schema can express?
+
+Things the schema CANNOT express (become to-dos):
 - Tabs or multi-view switching
 - Custom filter interactions between sections
 - Conditional card visibility
 - Non-standard layout not expressible via the sections schema
 
-**If NO** → done. Report file path.
-**If YES** → report file path + what domain content is needed.
+**If NO unmet requirements** → done. Report file path.
+**If YES** → report file path + list each unmet requirement as a specific to-do item.
 
 ## Definition JSON — Dashboard Schema
 
@@ -205,5 +213,5 @@ Sections render in array order. Common patterns:
 There is NO fixed layout — match the user's request. If the user doesn't specify ordering, use: KPIs → charts → grid.
 
 ## Output
-Report: file path, whether Pass 3 is needed.
+Report: file path, plus any unmet requirements as specific to-do items.
 Do NOT describe what was generated — no KPI lists, no chart summaries. One line: the path.

@@ -811,12 +811,24 @@ function renderFromDefinition(def) {
   // (e.g. itemList, cardGroup via a parent node) still work fine unwrapped;
   // "layoutLabel" is for giving the whole escape-hatch fragment a heading
   // when the request calls for one (e.g. "Activity / Comments").
-  const layoutBody = layout ? layoutTree.renderNode(layout, layoutLabel ? "                " : "              ", { dataBinding, theme }) : "";
+  const layoutBody = layout ? layoutTree.renderNode(layout, layoutLabel ? "                " : "              ", { dataBinding, entityName, theme }) : "";
   const layoutSail = layout && layoutLabel
     ? `              a!sectionLayout(\n                label: "${layoutLabel}",\n                labelColor: "STANDARD",\n                contents: {\n${layoutBody}\n                }\n              )`
     : layoutBody;
 
-  const editButton = `a!buttonArrayLayout(
+  const editButton = def.editActionRef
+    ? `a!recordActionField(
+                  actions: {
+                    a!recordActionItem(
+                      action: '${def.editActionRef}',
+                      identifier: ${entityIdVar(entityName)}
+                    )
+                  },
+                  style: "TOOLBAR",
+                  display: "LABEL_AND_ICON",
+                  openActionsIn: "DIALOG"
+                )`
+    : `a!buttonArrayLayout(
                   buttons: {
                     /* TODO-CONVERTER: Transform to record action or process model link */
                     a!buttonWidget(

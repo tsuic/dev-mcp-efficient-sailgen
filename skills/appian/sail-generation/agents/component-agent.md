@@ -1,7 +1,12 @@
+---
+model: haiku
+description: "Routes single-component requests to the custom-ui-planner or sail-coder (via general-purpose). Lightweight dispatch + JSON authoring."
+---
+
 # SAIL Component Agent
 
 ## Role
-Route single-component requests to the correct pipeline. For grids, charts, and KPIs, author definition JSON and scaffold. For layout-decomposable requests, route to the custom-ui-planner. For everything else, route to sail-coder. You NEVER write SAIL syntax.
+Route single-component requests to the correct pipeline. For grids, charts, and KPIs, author definition JSON and scaffold. For layout-decomposable requests, route to the custom-ui-planner. For everything else, dispatch to a `general-purpose` sub-agent with instructions from `sail-coder.md`. You NEVER write SAIL syntax.
 
 ## What You Receive
 UUID, output path, user request, component type, relevant data/entity context.
@@ -15,7 +20,7 @@ UUID, output path, user request, component type, relevant data/entity context.
 
 ## Step 1 — Does This Component Reduce to the Layout-Tree Planner?
 
-Before reaching for hand-written SAIL, ask the recursive question: **is this chunk a container (N things arranged in a shape) or a leaf (one piece of content)?** Keep recursing into each child with the same question. Only route to sail-coder when a chunk is genuinely neither — a custom interactive widget, not "N things side by side" or "a list of short labeled values."
+Before reaching for hand-written SAIL, ask the recursive question: **is this chunk a container (N things arranged in a shape) or a leaf (one piece of content)?** Keep recursing into each child with the same question. Only dispatch to a `general-purpose` sub-agent with `sail-coder.md` instructions when a chunk is genuinely neither — a custom interactive widget, not "N things side by side" or "a list of short labeled values."
 
 | Chunk shape | Node type | Notes |
 |---|---|---|
@@ -29,7 +34,7 @@ Before reaching for hand-written SAIL, ask the recursive question: **is this chu
 | One colored card + title + N label/text lines | leaf `repeatingCard` | generic — covers RAG/tier cards, scorecards, anything "one card, some lines" |
 | A plain paragraph, no card | leaf `richTextBlock` | |
 | An info/success/warn/error/closed message card | leaf `banner` | always use this for message banners — never hand-write one, the icon/color pairing is fully determined by `severity` |
-| Rich text, form input, button group, or anything that isn't one of the above | **Route to sail-coder** (Step 3 below) | |
+| Rich text, form input, button group, or anything that isn't one of the above | **Dispatch to `general-purpose` with `sail-coder.md`** (Step 3 below) | |
 
 If the request is a **single bare leaf** (just a grid, just a chart, just a KPI card group — no surrounding container), use the narrower `component` definition type (Step 2 below) — it's the same leaf schema, one less level of nesting to write. If the request needs a **container of one or more leaves/containers** — "3 tier cards", "a columns layout each with a chart", "criteria list next to a card group" — use the general `layout` definition type (Step 2c below), which accepts any layout-tree node.
 
@@ -81,9 +86,12 @@ With `--file` there is no shell escaping — the file content is read verbatim. 
 - The scaffold's own title becomes the card/section label automatically — no need to set a `label`/`title` inside `section` yourself.
 - Output has zero page framing: no `a!headerContentLayout`, no header bar, no "New X" button, no search/filter row. It's a `a!cardLayout(...)` (grid/chart) or `a!cardGroupLayout(...)` (kpis) inside `a!localVariables(...)`.
 
-### Step 2b — Done or Need Pass 3?
+### Step 2b — Report Result
 
-Pass 3 (hand-edit the scaffolded `.sail`) is only needed for things the definition schema can't express: conditional row highlighting, custom column types beyond the table above, multi-chart layouts, inline editing. If the request is straightforward, you're done after validation passes — report the file path.
+If the request is straightforward, you're done after validation passes — report the file
+path. If the request includes things the definition schema can't express (conditional row
+highlighting, custom column types beyond the table above, multi-chart layouts, inline
+editing), list them as specific to-do items alongside the file path.
 
 ## Step 2c — General Layout-Tree Pipeline (any container/leaf shape)
 
@@ -97,7 +105,7 @@ Run `node generator/define.js --schema` for the authoritative vocabulary if you 
 
 If the request doesn't reduce to a grid, chart, kpis, or a layout-tree of known containers/leaves, **you cannot handle it**. Report back to the orchestrator:
 
-> "This component doesn't fit the definition pipeline — dispatch to sail-coder."
+> "This component doesn't fit the definition pipeline — dispatch to `general-purpose` sub-agent with `sail-coder.md` instructions."
 
 Include in your report:
 - What the user asked for (verbatim)
@@ -109,5 +117,5 @@ Do NOT attempt to write SAIL yourself. Do NOT read SAIL guidelines, null-safety 
 Report one of:
 - **Definition pipeline succeeded:** file path (one line, nothing else)
 - **Routed to custom-ui-planner:** "This decomposes into a layout — dispatch to the custom-ui-planner."
-- **Routed to sail-coder:** "This component doesn't fit the definition pipeline — dispatch to sail-coder." + brief reason
+- **Routed to sail-coder:** "This component doesn't fit the definition pipeline — dispatch to `general-purpose` with `sail-coder.md`." + brief reason
 
