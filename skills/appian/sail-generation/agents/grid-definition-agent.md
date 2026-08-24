@@ -22,14 +22,18 @@ Do NOT read `rich-text-icon-aliases.md`. For icon values, write your best guess 
 
 ## Step 1 — Write Definition JSON via CLI
 
+**All commands below run from `skills/appian/sail-generation/` (the pipeline root).** Set your cwd there.
+
 ```bash
-# Write the full JSON to a temp file with the Write tool (e.g. /tmp/def-{uuid}.json),
-# then pass its path — NEVER pass JSON inline as a shell argument.
+# Write definition JSON to a temp file via heredoc, then pass its path.
+# NEVER pass JSON inline as a shell argument — NEVER use the Write/fs_write tool for this.
+cat << 'EOF' > /tmp/def-{uuid}.json
+{ ... your definition JSON ... }
+EOF
 node generator/define.js --write {uuid} --file /tmp/def-{uuid}.json
 ```
 
-With `--file` there is no shell escaping — the file content is read verbatim. If it fails, fix the JSON, re-run until exit 0.
-Write your JSON to a temp file for `--file`; just never hand-write the pipeline's output `definition.json` — always use `--write`.
+The heredoc (`<< 'EOF'`) passes content verbatim with no shell escaping issues. If it fails, fix the JSON, re-run until exit 0.
 
 ## Step 2 — Scaffold
 
@@ -75,7 +79,7 @@ Add a `"theme"` object ONLY when the user explicitly requests non-default colors
   "columns": [
     { "name": "camelName", "label": "Display Label", "type": "primary", "width": "MEDIUM" },
     { "name": "status", "label": "Status", "type": "tag", "width": "NARROW_PLUS",
-      "tagColors": { "Active": "POSITIVE", "Expired": "NEGATIVE", "Pending": "SECONDARY" } },
+      "tagColors": { "Active": "#27AE60", "Expired": "#C0392B", "Pending": "#7F8C8D" } },
     { "name": "value", "label": "Value", "type": "text", "width": "NARROW_PLUS", "align": "END" }
   ],
   "rows": [
@@ -110,7 +114,7 @@ Either ALL columns are `AUTO` or NONE are (grid column width rule is uniform).
 - Provide 5–8 realistic sample rows
 
 ### Tag colors
-Prefer a hex color (e.g. `"#2C3E50"`) for every `tagColors` entry — it always validates and never needs a lookup. The only non-hex values accepted are the exact words `ACCENT`, `POSITIVE`, `NEGATIVE`, `SECONDARY` (case-sensitive) — this is a closed, 4-word list. Do NOT invent a plausible-sounding color word (`NEUTRAL`, `WARNING`, `INFO`, `GRAY`, etc.) — anything outside these 4 words fails validation. If none of the 4 fit the semantic meaning you want, use hex.
+Always use hex colors (`"#RRGGBB"` format, e.g. `"#2C3E50"`, `"#27AE60"`, `"#C0392B"`). Do NOT use named color tokens — only hex is accepted.
 
 ### Filters (optional)
 - `column` must reference an existing column name

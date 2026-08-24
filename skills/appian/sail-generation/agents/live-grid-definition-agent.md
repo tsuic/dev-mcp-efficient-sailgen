@@ -21,14 +21,21 @@ UUID, output path, user request, the Concrete_Identifiers (record type/field/rel
 
 ## Step 1 — Write Definition JSON via CLI
 
-**Stage the JSON in a scratch file, then pass it via `--file`.**
+**All commands below run from `skills/appian/sail-generation/` (the pipeline root).** Set your cwd there.
+
+**Stage the JSON in a temp file via heredoc, then pass its path.**
 Live grid definitions embed record type references (e.g. `recordType!{uuid}Name.fields.{uuid}fieldName`)
 that contain their own braces and special characters. Don't hand-escape it:
 
 ```bash
-node generator/define.js --write {uuid} --file /path/to/scratch.json
+# NEVER use the Write/fs_write tool for this — NEVER pass JSON inline as a shell argument.
+cat << 'EOF' > /tmp/def-{uuid}.json
+{ ... your definition JSON ... }
+EOF
+node generator/define.js --write {uuid} --file /tmp/def-{uuid}.json
 ```
 
+The heredoc (`<< 'EOF'`) passes content verbatim with no shell escaping issues.
 If `--write` fails, fix the JSON, re-run until exit 0.
 
 ## Step 2 — Scaffold
@@ -113,7 +120,7 @@ Same column schema as the mockup grid, but with `fieldRef` instead of relying on
 "columns": [
   { "name": "title", "label": "Title", "type": "primary", "width": "MEDIUM", "fieldRef": "title" },
   { "name": "status", "label": "Status", "type": "tag", "width": "NARROW_PLUS", "fieldRef": "statusLabel",
-    "tagColors": { "New": "ACCENT", "In Progress": "POSITIVE", "Resolved": "POSITIVE", "Closed": "SECONDARY" } },
+    "tagColors": { "New": "#3498DB", "In Progress": "#27AE60", "Resolved": "#27AE60", "Closed": "#7F8C8D" } },
   { "name": "assignedTo", "label": "Assigned To", "type": "text", "width": "NARROW_PLUS", "fieldRef": "assignedTo",
     "exportWhen": false }
 ]
@@ -189,9 +196,7 @@ Default sort configuration:
 The `field` value is an alias from `dataSource.fields`.
 
 ### Tag colors
-Prefer hex colors (e.g. `"#C0392B"`) — always validates. The only non-hex values accepted
-are the exact words `ACCENT`, `POSITIVE`, `NEGATIVE`, `SECONDARY` (case-sensitive, closed
-4-word list). Do NOT invent other color words.
+Always use hex colors (`"#RRGGBB"` format, e.g. `"#2C3E50"`, `"#27AE60"`, `"#C0392B"`). Do NOT use named color tokens — only hex is accepted.
 
 ### `computed` — Expression Primitives (`$expr`)
 
@@ -264,9 +269,9 @@ If the computed logic you need is not in this list → report it as an unmet req
   "columns": [
     { "name": "title", "label": "Title", "type": "primary", "width": "MEDIUM", "fieldRef": "title" },
     { "name": "status", "label": "Status", "type": "tag", "width": "NARROW_PLUS", "fieldRef": "statusLabel",
-      "tagColors": { "New": "ACCENT", "In Progress": "POSITIVE", "On Hold": "SECONDARY", "Resolved": "POSITIVE", "Closed": "SECONDARY" } },
+      "tagColors": { "New": "#3498DB", "In Progress": "#27AE60", "On Hold": "#7F8C8D", "Resolved": "#27AE60", "Closed": "#95A5A6" } },
     { "name": "priority", "label": "Priority", "type": "tag", "width": "NARROW_PLUS", "fieldRef": "priorityLabel",
-      "tagColors": { "Critical": "NEGATIVE", "High": "NEGATIVE", "Medium": "ACCENT", "Low": "SECONDARY" } },
+      "tagColors": { "Critical": "#C0392B", "High": "#E74C3C", "Medium": "#3498DB", "Low": "#7F8C8D" } },
     { "name": "category", "label": "Category", "type": "text", "width": "NARROW_PLUS", "fieldRef": "categoryLabel" },
     { "name": "assignedTo", "label": "Assigned To", "type": "text", "width": "NARROW_PLUS", "fieldRef": "assignedTo", "exportWhen": false },
     { "name": "createdAt", "label": "Created", "type": "text", "width": "NARROW_PLUS", "fieldRef": "createdAt" }

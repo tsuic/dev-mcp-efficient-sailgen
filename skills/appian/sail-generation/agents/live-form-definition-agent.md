@@ -32,15 +32,20 @@ UUID, output path, user request, the Concrete_Identifiers (record type/field/rel
 
 ## Step 1 — Write Definition JSON via CLI
 
+**All commands below run from `skills/appian/sail-generation/` (the pipeline root).** Set your cwd there.
+
 Build the definition JSON with the `dataBinding` block and sections that reference concrete fields via `fieldRef`. Then run:
 
 ```bash
-# Write the full JSON to a temp file with the Write tool (e.g. /tmp/def-{uuid}.json),
-# then pass its path — NEVER pass JSON inline as a shell argument.
+# Write definition JSON to a temp file via heredoc, then pass its path.
+# NEVER pass JSON inline as a shell argument — NEVER use the Write/fs_write tool for this.
+cat << 'EOF' > /tmp/def-{uuid}.json
+{ ... your definition JSON ... }
+EOF
 node generator/define.js --write {uuid} --file /tmp/def-{uuid}.json
 ```
 
-With `--file` there is no shell escaping — the file content is read verbatim.
+The heredoc (`<< 'EOF'`) passes content verbatim with no shell escaping issues.
 
 If the command fails (exit 1), read the error, fix the JSON, re-run. Do NOT proceed until exit 0.
 

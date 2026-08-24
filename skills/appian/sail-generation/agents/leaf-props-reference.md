@@ -89,7 +89,7 @@ Embedded summary grid — same shape as standalone grid columns/rows but no filt
   "columns": [
     { "name": "orderId", "label": "Order", "type": "primary", "width": "NARROW_PLUS" },
     { "name": "status", "label": "Status", "type": "tag", "width": "NARROW_PLUS",
-      "tagColors": { "Active": "POSITIVE", "Pending": "SECONDARY" } }
+      "tagColors": { "Active": "#27AE60", "Pending": "#7F8C8D" } }
   ],
   "rows": [
     { "orderId": "ORD-100", "status": "Active" }
@@ -144,7 +144,7 @@ Row of short chips/tags.
   "leaf": "tagGroup",
   "label": "Skills",
   "items": [
-    { "text": "Python", "color": "ACCENT" },
+    { "text": "Python", "color": "#3498DB" },
     { "text": "SQL", "color": "#2C3E50" }
   ]
 }
@@ -155,7 +155,7 @@ Row of short chips/tags.
 | `label` | No | string | Optional heading above the tags |
 | `items` | Yes | array | Non-empty array |
 | `items[].text` | Yes | string | Tag text |
-| `items[].color` | No | enum/hex | `ACCENT`, `POSITIVE`, `NEGATIVE`, `SECONDARY`, or hex |
+| `items[].color` | No | hex | Hex color (`#RRGGBB`) |
 
 ---
 
@@ -331,7 +331,7 @@ Cards are always white/light with dark text (no per-item color).
       "avatarText": "AC",
       "avatarColor": "#3B82F6",
       "tag": "Approved",
-      "tagColor": "POSITIVE"
+      "tagColor": "#27AE60"
     }
   ]
 }

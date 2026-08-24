@@ -53,7 +53,7 @@ in parallel — using a placeholder string causes HTTP 500 errors. Similarly,
 2. `listRecordTypes(appUuid)` — find the primary record type
 3. `getRecordType(uuid)` — primary record type (fields + relationships)
 4. `getRecordType(uuid)` × N — each related record type whose fields you reference
-5. `listRecordData(uuid)` × M — small lookup tables to get enum values for filters
+5. `listRecordData(uuid)` × M — **REQUIRED** for every lookup table whose IDs will appear in KPI/grid filters (e.g. Status, Priority). Include the full id→label mapping in the dispatch brief's LOOKUP DATA section. Without this, the definition agent cannot translate business concepts ("open tickets") into correct numeric filter values.
 
 **Minimum discovery for a live form/wizard:**
 1. `listApplications(query)` — get app UUID
@@ -68,7 +68,7 @@ in parallel — using a placeholder string causes HTTP 500 errors. Similarly,
 3. `getRecordType(uuid)` — primary record type (fields + relationships)
 4. `getRecordType(uuid)` × N — each related record type whose fields you reference
 5. `listRecordTypeActions(uuid)` — get action UUIDs and keys (parameter is `uuid`, NOT `recordTypeUuid`)
-6. Optionally `listRecordData(uuid)` × M — small lookup tables for tag color mapping
+6. `listRecordData(uuid)` × M — **REQUIRED** for lookup tables whose IDs will appear in grid filters or tag color mappings. Include the full id→label mapping in the dispatch brief's LOOKUP DATA section.
 
 **Resolving record action references:** Action references follow the same UUID-qualified
 format as fields and relationships. Call `listRecordTypeActions(uuid: "<recordTypeUuid>")`
@@ -185,15 +185,20 @@ for the definition. Do NOT read define.js, do NOT read old definition files, do 
 USER REQUEST: "{verbatim}"
 INFERRED ENTITIES: {EntityName} (field1, field2, ...)
 CONCRETE IDENTIFIERS: (paste record type UUIDs, field UUIDs, relationship UUIDs from MCP discovery)
+LOOKUP DATA: (for live dashboards and live grids ONLY — include when listRecordData was called)
+  statusId: { 1: "New", 2: "In Progress", 3: "On Hold", 4: "Resolved", 5: "Closed" }
+  priorityId: { 1: "Low", 2: "Medium", 3: "High", 4: "Critical" }
+  (one line per FK field that has a lookup table — omit for mockup dispatches)
 
 PIPELINE REMINDER (definition agents):
 You MUST use the definition pipeline: write definition JSON → scaffold.js renders SAIL.
 NEVER write raw SAIL components by hand. NEVER mkdir an output directory.
-Write the definition JSON to a temp file with the Write tool, then pass its PATH via
---file. NEVER pass JSON inline as a shell argument ('{json}') — a quote, $, backtick,
-backslash, or newline in any label breaks shell quoting and wastes many turns.
+Write the definition JSON to a temp file via bash heredoc (cat << 'EOF' > /tmp/def-{uuid}.json),
+then pass its PATH via --file. NEVER pass JSON inline as a shell argument ('{json}') — a quote,
+$, backtick, backslash, or newline in any label breaks shell quoting and wastes many turns.
+NEVER use the Write/fs_write tool to create the temp file — use a heredoc in bash.
 All commands run from: skills/appian/sail-generation/
-  # (write /tmp/def-{uuid}.json with the Write tool first)
+  # (heredoc writes /tmp/def-{uuid}.json in the same bash call)
   node generator/define.js --write {uuid} --file /tmp/def-{uuid}.json
   node generator/scaffold.js --from-definition {uuid}
   ./validate.sh <outputPath from scaffold.js stdout>

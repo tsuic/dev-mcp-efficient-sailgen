@@ -554,70 +554,13 @@ function loadIconAliases() {
 
 function validateIcon(icon, context, errors) {
   if (!icon || typeof icon !== "string") return;
-  const aliases = loadIconAliases();
-  if (aliases.size === 0) return; // can't validate — alias file not loaded
-
-  // Already a valid Appian icon alias — nothing to do
-  if (aliases.has(icon)) return;
-
-  // Check if resolve-icons.js can handle it via DIRECT_SYNONYMS or DOMAIN_HINTS.
-  // Import the synonym table from resolve-icons so define.js stays in sync.
-  let resolvable = false;
-  try {
-    const resolveIconsPath = path.join(__dirname, "resolve-icons.js");
-    // Read the file to extract DIRECT_SYNONYMS keys (avoid executing the script)
-    const src = fs.readFileSync(resolveIconsPath, "utf-8");
-    const synMatch = src.match(/const DIRECT_SYNONYMS\s*=\s*\{([^}]+)\}/s);
-    if (synMatch) {
-      const keys = synMatch[1].match(/"([^"]+)"/g);
-      if (keys) {
-        const synonymKeys = new Set(keys.filter((_, i) => i % 2 === 0).map(k => k.replace(/"/g, "")));
-        if (synonymKeys.has(icon.toLowerCase())) resolvable = true;
-      }
-    }
-  } catch { /* ignore — fall through to warning */ }
-
-  if (!resolvable) {
-    // Check DOMAIN_HINTS patterns inline (lightweight check)
-    const domainPatterns = [
-      /user|person|people|employee|staff|team|assignee|owner|author|creator/i,
-      /time|clock|hour|minute|duration|schedule|created|updated|date|latency|response/i,
-      /money|dollar|price|cost|payment|finance|budget|amount|currency/i,
-      /chart|metric|graph|analytics|dashboard|performance|kpi|gauge|average|avg|mean|median|rate|ratio|throughput|utilization/i,
-      /warning|alert|exclamation|caution|danger|error|failure|incident/i,
-      /ticket|issue|bug|incident|request|case/i,
-      /deploy|release|rocket|launch|ship|publish/i,
-      /server|uptime|cpu|memory|system|infrastructure/i,
-      /open|unassign|pending|queue|backlog|waiting/i,
-      /check|success|complete|done|approve|verify|resolved/i,
-      /star|favorite|bookmark|important|priority/i,
-      /critical|urgent|high|severe|escalat/i,
-      /search|find|lookup|magnify|filter/i,
-      /edit|pencil|modify|update|change|write/i,
-      /info|information|detail|about|help/i,
-      /history|log|audit|timeline|activity|event/i,
-      /document|file|report|paper|clipboard|form|attachment/i,
-      /security|shield|lock|protect|guard|auth|permission/i,
-      /email|mail|envelope|message|communication|contact/i,
-      /comment|chat|discuss|conversation|note|remark|reply/i,
-      /location|map|address|building|office|place|geo/i,
-      /tag|label|category|classify|group/i,
-      /revenue|sales|deal|pipeline|quota|growth/i,
-      /headcount|hire|recruit|workforce|onboard/i,
-      /close|resolve|finish|done|win/i,
-      /setting|config|gear|cog|wrench|preference|option/i,
-      /phone|call|mobile|telephone/i,
-      /travel|plane|flight|car|vehicle|trip|transport/i,
-      /link|chain|connect|attach|reference/i,
-      /resolution|solve|fix|repair|remedy|answer/i,
-    ];
-    for (const p of domainPatterns) {
-      if (p.test(icon)) { resolvable = true; break; }
-    }
-  }
-
-  if (!resolvable) {
-    errors.push(`${context}: icon "${icon}" is not a valid Appian alias and cannot be resolved by resolve-icons.js. Use a valid alias from rich-text-icon-aliases.md or a descriptive keyword that matches a known domain concept.`);
+  // Icon validation is intentionally permissive at definition time.
+  // Any non-empty string is accepted — the resolve-icons.js pass (Step 4 in
+  // the orchestrator) maps descriptive keywords to valid Appian aliases, with
+  // fallback to "circle-o" for truly unresolvable values. Rejecting keywords
+  // here forces unnecessary define retries without improving final output.
+  if (icon.trim().length === 0) {
+    errors.push(`${context}: icon must be a non-empty string`);
   }
 }
 
@@ -637,7 +580,7 @@ const PANE_WIDTHS = ["EXTRA_NARROW", "NARROW", "NARROW_PLUS", "MEDIUM", "MEDIUM_
 const PANE_CONTENT_TYPES = ["nav", "grid", "chart", "kpis", "detail", "placeholder", "layout"];
 
 function isValidTagColor(color) {
-  return TAG_COLORS.includes(color) || /^#[0-9A-Fa-f]{6}$/.test(color);
+  return /^#[0-9A-Fa-f]{6}$/.test(color);
 }
 
 /**
@@ -686,7 +629,7 @@ function validateGridColumnsAndRows(columns, rows, context, errors) {
       } else {
         Object.entries(col.tagColors).forEach(([value, color]) => {
           if (!isValidTagColor(color)) {
-            errors.push(`${cc}: tagColors["${value}"] must be one of [${TAG_COLORS.join(", ")}] or a hex color, got: ${JSON.stringify(color)}`);
+            errors.push(`${cc}: tagColors["${value}"] must be a hex color (#RRGGBB), got: ${JSON.stringify(color)}`);
           }
         });
       }
@@ -799,7 +742,7 @@ function validateLiveGridDefinition(def, errors) {
       } else {
         Object.entries(col.tagColors).forEach(([value, color]) => {
           if (!isValidTagColor(color)) {
-            errors.push(`${cc}: tagColors["${value}"] must be one of [${TAG_COLORS.join(", ")}] or a hex color, got: ${JSON.stringify(color)}`);
+            errors.push(`${cc}: tagColors["${value}"] must be a hex color (#RRGGBB), got: ${JSON.stringify(color)}`);
           }
         });
       }
@@ -1887,7 +1830,7 @@ function validateRecordViewDefinition(def, errors) {
         }
         Object.entries(field.tagColors).forEach(([value, color]) => {
           if (!isValidTagColor(color)) {
-            errors.push(`${context}: tagColors["${value}"] must be one of [${TAG_COLORS.join(", ")}] or a hex color, got: ${JSON.stringify(color)}`);
+            errors.push(`${context}: tagColors["${value}"] must be a hex color (#RRGGBB), got: ${JSON.stringify(color)}`);
           }
         });
       }

@@ -22,14 +22,18 @@ No files needed.
 
 ## Step 1 — Write Definition JSON via CLI
 
+**All commands below run from `skills/appian/sail-generation/` (the pipeline root).** Set your cwd there.
+
 ```bash
-# Write the full JSON to a temp file with the Write tool (e.g. /tmp/def-{uuid}.json),
-# then pass its path — NEVER pass JSON inline as a shell argument.
+# Write definition JSON to a temp file via heredoc, then pass its path.
+# NEVER pass JSON inline as a shell argument — NEVER use the Write/fs_write tool for this.
+cat << 'EOF' > /tmp/def-{uuid}.json
+{ ... your definition JSON ... }
+EOF
 node generator/define.js --write {uuid} --file /tmp/def-{uuid}.json
 ```
 
-With `--file` there is no shell escaping — the file content is read verbatim. If it fails, fix the JSON, re-run until exit 0.
-Write your JSON to a temp file for `--file`; just never hand-write the pipeline's output `definition.json` — always use `--write`.
+The heredoc (`<< 'EOF'`) passes content verbatim with no shell escaping issues. If it fails, fix the JSON, re-run until exit 0.
 
 ## Step 2 — Scaffold
 
@@ -70,17 +74,17 @@ There is no `repeatingCard` leaf — that name doesn't exist in the current sche
     "layout": "columns",
     "items": [
       { "leaf": "tagGroup", "label": "Evaluation Criteria",
-        "items": [{ "text": "Communication", "color": "SECONDARY" }, { "text": "System Design", "color": "SECONDARY" }] },
+        "items": [{ "text": "Communication", "color": "#7F8C8D" }, { "text": "System Design", "color": "#7F8C8D" }] },
       { "layout": "cardGroup", "items": [
-        { "layout": "card", "headerColor": "POSITIVE", "items": [
+        { "layout": "card", "headerColor": "#27AE60", "items": [
           { "leaf": "heading", "text": "Top Performer" },
           { "leaf": "keyValueList", "items": [{ "label": "Communication", "value": "Clearly explains tradeoffs to non-experts" }] }
         ] },
-        { "layout": "card", "headerColor": "SECONDARY", "items": [
+        { "layout": "card", "headerColor": "#7F8C8D", "items": [
           { "leaf": "heading", "text": "Mediocre Performer" },
           { "leaf": "keyValueList", "items": [{ "label": "Communication", "value": "Explains ideas but needs prompting" }] }
         ] },
-        { "layout": "card", "headerColor": "NEGATIVE", "items": [
+        { "layout": "card", "headerColor": "#C0392B", "items": [
           { "leaf": "heading", "text": "Poor Performer" },
           { "leaf": "keyValueList", "items": [{ "label": "Communication", "value": "Struggles to articulate technical decisions" }] }
         ] }
@@ -115,7 +119,7 @@ Use this for any "N records, same few fields" feed — never `card`/`cardGroup` 
 | `items[].avatarIcon` | Required if `avatarType` is `"icon"` | Best-guess icon name (e.g. "user-circle", "cog") |
 | `items[].avatarColor` | Optional | Hex color; cycles through a default palette if omitted |
 | `items[].trailing` | Required if `trailingType` is `"text"` (default) | e.g. `"2 hours ago"` |
-| `items[].tag` / `items[].tagColor` | Required if `trailingType` is `"tag"` | `tagColor`: ACCENT/POSITIVE/NEGATIVE/SECONDARY or hex |
+| `items[].tag` / `items[].tagColor` | Required if `trailingType` is `"tag"` | `tagColor`: hex color (`"#RRGGBB"`) |
 
 At least one of `"sections"` or `"layout"` is required. Renders after the field-card sections. Same container/leaf vocabulary as the `layout` top-level type — see `component-agent.md` Step 2c for the full node reference table.
 
@@ -131,7 +135,7 @@ Optional top-level `headerKind` picks the page-header style (the scaffold emits 
   "recordName": "Alice Johnson",
   "keyAttributes": [
     { "name": "status", "label": "Status", "type": "text", "value": "Active",
-      "tag": true, "tagColors": { "Active": "POSITIVE", "On Leave": "SECONDARY", "Terminated": "NEGATIVE" } },
+      "tag": true, "tagColors": { "Active": "#27AE60", "On Leave": "#7F8C8D", "Terminated": "#C0392B" } },
     { "name": "department", "label": "Department", "type": "text", "value": "Engineering" },
     { "name": "role", "label": "Role", "type": "text", "value": "Senior Manager" },
     { "name": "tenure", "label": "Tenure", "type": "text", "value": "6.5 years" }
@@ -199,7 +203,7 @@ Each section renders as a card with a heading. Short fields auto-layout in 2-col
 | `tagColors` | Required if `tag: true` | Map of value → color |
 
 ### Tag colors
-Prefer a hex color (e.g. `"#2C3E50"`) for every `tagColors` entry — it always validates and never needs a lookup. The only non-hex values accepted are the exact words `ACCENT`, `POSITIVE`, `NEGATIVE`, `SECONDARY` (case-sensitive) — this is a closed, 4-word list. Do NOT invent a plausible-sounding color word (`NEUTRAL`, `WARNING`, `INFO`, `GRAY`, etc.) — anything outside these 4 words fails validation. If none of the 4 fit the semantic meaning you want, use hex.
+Always use hex colors (`"#RRGGBB"` format, e.g. `"#2C3E50"`, `"#27AE60"`, `"#C0392B"`). Do NOT use named color tokens — only hex is accepted.
 
 ### Layout rules (handled by template — you don't control this)
 - Key attributes → `a!cardGroupLayout` (NARROW_PLUS cards)

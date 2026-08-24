@@ -24,20 +24,26 @@ For KPI icon fields, use a descriptive keyword where concept describes intent (e
 
 ## Step 1 — Write Definition JSON via CLI
 
+**All commands below run from `skills/appian/sail-generation/` (the pipeline root).** Set your cwd there.
+
 Never write `definition.json` directly with Write/fs_write — always go through `--write` so
 `validateDefinition` runs.
 
-**Default approach: stage the JSON in a scratch file, then pass it via a shell variable.**
+**Default approach: stage the JSON in a temp file via heredoc, then pass its path.**
 Live dashboard definitions embed SAIL string literals (e.g. `fv!row['recordType!...']`) that
 contain their own single quotes, which breaks naive `'{...json...}'` inline quoting. Don't
-hand-escape it — write the JSON to a scratch file with the Write tool, then:
+hand-escape it — use a heredoc to write the file, then pass the path:
 
 ```bash
-node generator/define.js --write {uuid} --file /path/to/scratch.json
+# NEVER use the Write/fs_write tool for this — NEVER pass JSON inline as a shell argument.
+cat << 'EOF' > /tmp/def-{uuid}.json
+{ ... your definition JSON ... }
+EOF
+node generator/define.js --write {uuid} --file /tmp/def-{uuid}.json
 ```
 
-This is staging the CLI *input*, not the pipeline's own `definition.json` artifact — it still
-goes through `--write` and full validation. If `--write` fails, fix the JSON, re-run until exit 0.
+The heredoc (`<< 'EOF'`) passes content verbatim with no shell escaping issues.
+If `--write` fails, fix the JSON, re-run until exit 0.
 
 ## Step 2 — Scaffold
 
@@ -156,6 +162,11 @@ When `dataSource` is present, each KPI item uses `query` instead of `value`:
 
 ### Filter objects
 
+**FK filter values MUST come from the LOOKUP DATA section in your dispatch brief.** When
+filtering by a foreign key (e.g. `statusId in [1, 2, 3]`), look up the exact numeric IDs
+from the labeled mapping provided. Never guess or assume FK values — if the LOOKUP DATA
+section is missing for a field you need to filter on, use a `$expr` or report it as a to-do.
+
 ```json
 { "field": "statusId", "operator": "in", "value": [1, 2, 3] }
 ```
@@ -205,7 +216,7 @@ Add `recordSource` to a grid section. Omit `rows` — only `columns` are needed:
   "columns": [
     { "name": "title", "label": "Title", "type": "primary", "width": "MEDIUM", "fieldRef": "title" },
     { "name": "status", "label": "Status", "type": "tag", "width": "NARROW_PLUS", "fieldRef": "statusLabel",
-      "tagColors": { "New": "ACCENT", "In Progress": "SECONDARY", "On Hold": "#F39C12" } },
+      "tagColors": { "New": "#3498DB", "In Progress": "#7F8C8D", "On Hold": "#F39C12" } },
     { "name": "priority", "label": "Priority", "type": "tag", "width": "NARROW_PLUS", "fieldRef": "priorityLabel",
       "tagColors": { "Low": "#7F8C8D", "Medium": "#F39C12", "High": "#E67E22", "Critical": "#C0392B" } },
     { "name": "daysOpen", "label": "Days Open", "type": "text", "width": "NARROW", "fieldRef": "createdAt",
@@ -277,7 +288,7 @@ Same as mockup schema — nest any combination of live KPIs, grids, charts:
 ```
 
 ### Tag colors
-Prefer hex colors (e.g. `"#C0392B"`) — always validates. The only non-hex values accepted are the exact words `ACCENT`, `POSITIVE`, `NEGATIVE`, `SECONDARY` (case-sensitive, closed 4-word list).
+Always use hex colors (`"#RRGGBB"` format, e.g. `"#2C3E50"`, `"#27AE60"`, `"#C0392B"`). Do NOT use named color tokens — only hex is accepted.
 
 ### `computed` — Expression Primitives (`$expr`)
 
@@ -357,7 +368,7 @@ If the computed logic you need is not in this list → report it as an unmet req
       "columns": [
         { "name": "title", "label": "Title", "type": "primary", "width": "MEDIUM", "fieldRef": "title" },
         { "name": "status", "label": "Status", "type": "tag", "width": "NARROW_PLUS", "fieldRef": "statusLabel",
-          "tagColors": { "New": "ACCENT", "In Progress": "SECONDARY", "On Hold": "#F39C12" } },
+          "tagColors": { "New": "#3498DB", "In Progress": "#7F8C8D", "On Hold": "#F39C12" } },
         { "name": "priority", "label": "Priority", "type": "tag", "width": "NARROW_PLUS", "fieldRef": "priorityLabel",
           "tagColors": { "Low": "#7F8C8D", "Medium": "#F39C12", "High": "#E67E22", "Critical": "#C0392B" } }
       ]
@@ -376,7 +387,7 @@ If the computed logic you need is not in this list → report it as an unmet req
           "columns": [
             { "name": "title", "label": "Title", "type": "primary", "width": "MEDIUM", "fieldRef": "title" },
             { "name": "status", "label": "Status", "type": "tag", "width": "NARROW_PLUS", "fieldRef": "statusLabel",
-              "tagColors": { "New": "ACCENT", "In Progress": "SECONDARY", "On Hold": "#F39C12" } }
+              "tagColors": { "New": "#3498DB", "In Progress": "#7F8C8D", "On Hold": "#F39C12" } }
           ]
         }
       ]

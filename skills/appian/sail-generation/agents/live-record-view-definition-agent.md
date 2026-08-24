@@ -30,8 +30,10 @@ Decide whether you already have a Complete_Data_Binding_Block before doing anyth
 - **Not complete yet (identifiers still being resolved, or you haven't decided on additional display content) → perform the skeleton, exactly as the mock agent does:**
 
 ```bash
-# Write this skeleton to a temp file with the Write tool (e.g. /tmp/def-{uuid}.json):
-#   {"type":"record-view","title":"...","entityName":"...","recordName":"...","skeleton":true}
+# Write skeleton JSON to a temp file via heredoc (NEVER use the Write/fs_write tool for this):
+cat << 'EOF' > /tmp/def-{uuid}.json
+{"type":"record-view","title":"...","entityName":"...","recordName":"...","skeleton":true}
+EOF
 # then pass its path (never inline):
 node generator/define.js --write {uuid} --file /tmp/def-{uuid}.json
 # scaffold.js prints single-line JSON on stdout; `outputPath` is the ABSOLUTE path it
@@ -50,6 +52,8 @@ Then proceed to Step 1 — it overwrites the skeleton in place, same two-step pa
 Either way, `dataBinding` itself is always authored in the full-definition pass (Step 1) — the skeleton, when performed, never carries `dataBinding`. Skipping the skeleton only skips the *placeholder-then-full* two-step; it never changes what the full definition itself looks like.
 
 ## Step 1 — Write Definition JSON via CLI (dataBinding)
+
+**All commands below run from `skills/appian/sail-generation/` (the pipeline root).** Set your cwd there.
 
 Build the `dataBinding` block field-by-field from the Concrete_Identifiers you received:
 - `recordType`: the record type reference
@@ -71,11 +75,15 @@ Use `keyAttributes`/`sections`/`layout` to actually DISPLAY the fields `dataBind
 This means: for every `dataBinding.fields`/`relatedRecordData` entry you want visible on the page, add a matching `keyAttributes` or `sections[].fields` entry with `fieldRef` set to that entry's field reference or `localName`. Only report as a to-do item content that `keyAttributes`/`sections`/`layout`'s fixed shapes genuinely can't express — conditional field visibility, custom per-item formatting a `relatedRecordData` entry's `itemFields` can't cover, or similar bespoke behavior. Process-launching buttons, record action fields, and process links are all handled natively by the `layout` field (see leaf types: `button`, `linkField`, `recordActionField`).
 
 ```bash
-# Write the full JSON (with dataBinding) to a temp file with the Write tool, then pass its path:
+# Write the full JSON (with dataBinding) to a temp file via heredoc, then pass its path:
+# NEVER use the Write/fs_write tool for this.
+cat << 'EOF' > /tmp/def-{uuid}.json
+{ ... your full definition JSON ... }
+EOF
 node generator/define.js --write {uuid} --file /tmp/def-{uuid}.json
 ```
 
-With `--file` there is no shell escaping — the file content is read verbatim. Write your JSON to a temp file for `--file`; just never hand-write the pipeline's output `definition.json` — always use `--write`.
+With the heredoc (`<< 'EOF'`) there is no shell escaping — content passes verbatim. Write your JSON this way for `--file`; just never hand-write the pipeline's output `definition.json` — always use `--write`.
 
 **Loop on `define.js --write` until validation passes before ever calling `scaffold.js`.** If validation fails, fix the JSON and re-run — never scaffold against a failing definition.
 
@@ -204,14 +212,14 @@ An alternative to `value` on any `keyAttributes[]` or `sections[].fields[]` entr
 - Requires `dataBinding` to be present on the definition.
 - Must match a string that's already somewhere in `dataBinding` — validation rejects a `fieldRef` that doesn't resolve to anything, so double-check the exact `localName`/field-reference string before writing it.
 - `tag: true` still works with `fieldRef` — the tag's displayed value comes from the query at runtime, so `tagColors` only needs its color entries validated (there's no fixed `value` to cross-check against `tagColors` since it isn't known at authoring time).
-- Tag colors: prefer a hex color (e.g. `"#2C3E50"`) for every `tagColors` entry — the only non-hex values accepted are the exact words `ACCENT`, `POSITIVE`, `NEGATIVE`, `SECONDARY` (case-sensitive), a closed 4-word list. Do NOT invent a color word (`NEUTRAL`, `WARNING`, etc.) — use hex instead if none of the 4 fit.
+- Tag colors: always use hex colors (`"#RRGGBB"` format, e.g. `"#2C3E50"`, `"#27AE60"`, `"#C0392B"`). Do NOT use named color tokens — only hex is accepted.
 
 Example — showing a relationship-qualified status lookup as a tag, and a plain field as text:
 ```json
 "titleFieldRef": "recordType!{uuid}ITSM Ticket.fields.{uuid}title",
 "keyAttributes": [
   { "name": "status", "label": "Status", "fieldRef": "statusLabel", "tag": true,
-    "tagColors": { "New": "ACCENT", "In Progress": "SECONDARY", "Resolved": "POSITIVE" } },
+    "tagColors": { "New": "#3498DB", "In Progress": "#7F8C8D", "Resolved": "#27AE60" } },
   { "name": "priority", "label": "Priority", "fieldRef": "priorityLabel" },
   { "name": "category", "label": "Category", "fieldRef": "categoryLabel" }
 ],
