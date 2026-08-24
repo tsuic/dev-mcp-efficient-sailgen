@@ -1541,6 +1541,11 @@ function collectDataBindingFieldRefs(dataBinding) {
     for (const f of dataBinding.fields) {
       if (typeof f === "string" && f) {
         refs.add(f);
+        // For @field.X aliases, also add the bare field name so titleFieldRef
+        // and fieldRef cross-checks can match by short name (bind.js resolves
+        // the alias to a full UUID ref later, but validation runs before bind).
+        const aliasMatch = f.match(/^@field\.(.+)$/);
+        if (aliasMatch) refs.add(aliasMatch[1]);
       } else if (f && typeof f === "object" && typeof f.localName === "string" && f.localName) {
         refs.add(f.localName);
       }
