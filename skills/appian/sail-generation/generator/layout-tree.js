@@ -1124,7 +1124,8 @@ registerLeaf("recordActionField", {
       const ac = `${context}.actions[${ai}]`;
       if (!action.actionRef || typeof action.actionRef !== "string") {
         errors.push(`${ac}: "actionRef" is required (e.g. "recordType!{rtUuid}Name.actions.{actionUuid}key")`);
-      } else if (!/\.actions\.\{[0-9a-f-]+\}/.test(action.actionRef)) {
+      } else if (!action.actionRef.startsWith("@") && !/\.actions\.\{[0-9a-f-]+\}/.test(action.actionRef)) {
+        // Alias strings (@action.X) are resolved by bind.js — skip UUID check.
         errors.push(`${ac}: "actionRef" must include the action UUID — format: "recordType!{rtUuid}Name.actions.{actionUuid}key" (got: ${JSON.stringify(action.actionRef)}). Call listRecordTypeActions to get the action UUID.`);
       }
     });
