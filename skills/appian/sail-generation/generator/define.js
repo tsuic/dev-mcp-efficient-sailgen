@@ -1714,10 +1714,25 @@ function validateFormWizardDataBinding(db, errors) {
 function collectFormDataBindingFieldRefs(db) {
   const refs = new Set();
   if (Array.isArray(db.fields)) {
-    db.fields.forEach((f) => { if (typeof f === "string" && f) refs.add(f); });
+    db.fields.forEach((f) => {
+      if (typeof f === "string" && f) {
+        refs.add(f);
+        // For @field.X aliases, also add the bare field name so fieldRef
+        // cross-checks can match by short name (bind.js resolves later).
+        const aliasMatch = f.match(/^@field\.(.+)$/);
+        if (aliasMatch) refs.add(aliasMatch[1]);
+      }
+    });
   }
   if (Array.isArray(db.relatedFields)) {
-    db.relatedFields.forEach((rf) => { if (rf && typeof rf.field === "string" && rf.field) refs.add(rf.field); });
+    db.relatedFields.forEach((rf) => {
+      if (rf && typeof rf.field === "string" && rf.field) {
+        refs.add(rf.field);
+        // For @rel.X.Y aliases, also add the bare rel.field path
+        const relMatch = rf.field.match(/^@rel\.(.+)$/);
+        if (relMatch) refs.add(relMatch[1]);
+      }
+    });
   }
   return refs;
 }
