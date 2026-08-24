@@ -132,6 +132,9 @@ function validateFilterValue(value, context) {
   const errors = [];
   if (value === null || value === undefined) return errors;
 
+  // Alias strings (@lookup.X[...]) are resolved by bind.js before scaffold — skip validation.
+  if (typeof value === "string" && value.startsWith("@")) return errors;
+
   if (typeof value === "object" && !Array.isArray(value)) {
     if (!value.$expr) {
       errors.push(`${context}: object filter values must have a "$expr" key. Raw objects are not allowed.`);

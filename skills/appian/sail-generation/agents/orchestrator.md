@@ -73,35 +73,24 @@ in parallel — using a placeholder string causes HTTP 500 errors. Similarly,
 **Resolving record action references:** Action references follow the same UUID-qualified
 format as fields and relationships. Call `listRecordTypeActions(uuid: "<recordTypeUuid>")`
 — note the parameter is `uuid`, not `recordTypeUuid` or `recordType`. The response
-returns each action's `uuid` and `key`. Construct the full qualified reference as:
+returns each action's `uuid` and `key`. Include each action in the bindings manifest:
+`actions.{key} = "{uuid}"`. In the brief, list them under ACTIONS (e.g. `editTicket, closeTicket`).
+The definition agent uses `@action.editTicket` — bind.js constructs the full qualified reference:
 
 ```
 recordType!{rtUuid}RecordName.actions.{actionUuid}actionKey
 ```
-
-Example: if `listRecordTypeActions` returns `{uuid: "a548020f-...", key: "workOnTicket"}`
-for record type `{08e470c4-...}ITSM Ticket`, the reference is:
-
-```
-recordType!{08e470c4-0802-4f4b-b3c2-407d7486d21a}ITSM Ticket.actions.{a548020f-fe34-4556-a25e-efcab665b8a4}workOnTicket
-```
-
-This mirrors fields (`fields.{fieldUuid}fieldName`) and relationships
-(`relationships.{relUuid}relName`). Never omit the action UUID — Appian rejects
-unqualified references like `.actions.workOnTicket` with "Unresolved reference" errors.
 
 **Resolving "display name" / "label" fields:** When the user asks for a field's
 display name (e.g. "status display name", "priority label", "category name"), that
 means the RELATIONSHIP LOOKUP field — not the raw FK integer. For every foreign-key
 field (e.g. `statusId`) that has a corresponding many-to-one relationship (e.g.
 `status` → Status record type), resolve the target record type's display field
-(typically `label` or `name`) and pass the full relationship-qualified field path
-as a Concrete Identifier:
+(typically `label` or `name`):
 - Call `getRecordType(uuid)` on the related record type to find its `label`/`name` field UUID
-- The Concrete Identifier for the definition agent is: `{relationship, field, localName}` where:
-  - `relationship` = the many-to-one relationship reference on the base record type
-  - `field` = `{relationship}.fields.{targetFieldUuid}{targetFieldName}`
-  - `localName` = a descriptive camelCase name like `statusLabel`, `priorityLabel`
+- Include the target field UUID in the bindings manifest: `relationships.status.targetFields.label = "<uuid>"`
+- In the brief, list: `RELATIONSHIPS: status (→ id, label)`
+- The definition agent uses `@rel.status.label` — no UUID transcription needed
 
 Never pass a raw FK integer field (like `statusId`) when the user asks for the
 display name — that shows a meaningless number instead of human-readable text.
@@ -169,30 +158,89 @@ The resolved absolute path appears in the scaffold.js output JSON as `outputPath
 - **Zero intermediate tool calls.** After classifying + discovering UUIDs, dispatch immediately.
 - **Specialist MUST report the absolute resolved output path** in its summary.
 - **Specialist MUST report any unmet requirements** as a to-do list (see Step 6).
-- **Decide live vs. mockup variant BEFORE dispatching** — the Concrete Identifiers check
-  alone tells you which one. Never read both variants "to compare."
+- **Decide live vs. mockup variant BEFORE dispatching** — if MCP discovery completed
+  (you have a bindings manifest), use the live variant. Otherwise use mockup.
 
-Build the brief:
+### WRITING THE BINDINGS MANIFEST
+
+After MCP discovery completes, write a **bindings manifest** to `/tmp/bindings-{uuid}.json`.
+This file is consumed by `bind.js` to resolve aliases — the definition agent never reads it.
+
+Write it via heredoc (same pattern as definition JSON):
+
+```bash
+cat << 'EOF' > /tmp/bindings-{uuid}.json
+{
+  "recordType": {
+    "uuid": "<from getRecordType response>",
+    "name": "<record type name>",
+    "typeReference": "<typeReference string from getRecordType>"
+  },
+  "fields": {
+    "id": "<field uuid>",
+    "title": "<field uuid>",
+    "statusId": "<field uuid>"
+  },
+  "relationships": {
+    "status": {
+      "uuid": "<relationship uuid>",
+      "targetFields": { "id": "<target field uuid>", "label": "<target field uuid>" }
+    }
+  },
+  "actions": {
+    "editTicket": "<action uuid>",
+    "closeTicket": "<action uuid>"
+  },
+  "lookups": {
+    "statusId": { "1": "New", "2": "In Progress", "3": "On Hold", "4": "Resolved", "5": "Closed" }
+  },
+  "lookupRecordTypes": {
+    "Status": { "uuid": "<lookup RT uuid>", "name": "Customer Status", "fields": { "id": "<uuid>", "label": "<uuid>" } }
+  }
+}
+EOF
+```
+
+**Manifest fields:**
+- `recordType`: uuid, name, and typeReference from `getRecordType` response
+- `fields`: map each field name → its uuid (from the record type's fields list)
+- `relationships`: map each relationship name → `{ uuid, targetFields: { fieldName: fieldUuid } }`. Get targetFields by calling `getRecordType` on the related record type
+- `actions`: map each action key → its uuid (from `listRecordTypeActions`)
+- `lookups`: map each FK field name → `{ id: label }` mapping (from `listRecordData` on the lookup table)
+- `lookupRecordTypes`: (for forms/wizards only) map a short name → `{ uuid, name, fields: { fieldName: uuid } }` for each lookup record type used in dropdown queries
+
+Only include sections that are relevant to the request type. Dashboards/grids need `fields`, `relationships`, `lookups`. Forms/wizards also need `lookupRecordTypes`. Grids with actions need `actions`.
+
+### BUILD THE BRIEF
+
+Build the brief with **field/relationship names only** — no UUIDs:
 
 ```
 TASK TYPE: wizard | form | grid | dashboard | record-view | pane | component | display | layout
 UUID: {uuid}
 PIPELINE ROOT: skills/appian/sail-generation
+BINDINGS PATH: /tmp/bindings-{uuid}.json
 
 FIRST: Read skills/appian/sail-generation/agents/{agent-file}.md — it contains the JSON schema
 for the definition. Do NOT read define.js, do NOT read old definition files, do NOT ls/find.
 
 USER REQUEST: "{verbatim}"
 INFERRED ENTITIES: {EntityName} (field1, field2, ...)
-CONCRETE IDENTIFIERS: (paste record type UUIDs, field UUIDs, relationship UUIDs from MCP discovery)
-LOOKUP DATA: (for live dashboards and live grids ONLY — include when listRecordData was called)
-  statusId: { 1: "New", 2: "In Progress", 3: "On Hold", 4: "Resolved", 5: "Closed" }
-  priorityId: { 1: "Low", 2: "Medium", 3: "High", 4: "Critical" }
-  (one line per FK field that has a lookup table — omit for mockup dispatches)
+
+AVAILABLE FIELDS: id, title, statusId, priorityId, assignedTo, createdDate, resolvedAt
+RELATIONSHIPS: status (→ id, label), priority (→ id, label), category (→ id, label)
+ACTIONS: createTicket, editTicket, workOnTicket
+FILTERS: status, priority
+LOOKUP VALUES:
+  status: New, In Progress, On Hold, Resolved, Closed
+  priority: Low, Medium, High, Critical
+LOOKUP RECORD TYPES: (for forms/wizards only)
+  Status (id, label)
+  Priority (id, label)
 
 PIPELINE REMINDER (definition agents):
-You MUST use the definition pipeline: write definition JSON → scaffold.js renders SAIL.
-NEVER write raw SAIL components by hand. NEVER mkdir an output directory.
+You MUST use the definition pipeline: write definition JSON → bind.js → scaffold.js renders SAIL.
+NEVER write raw SAIL components by hand. NEVER mkdir an output directory. NEVER write UUIDs.
 Write the definition JSON to a temp file via bash heredoc (cat << 'EOF' > /tmp/def-{uuid}.json),
 then pass its PATH via --file. NEVER pass JSON inline as a shell argument ('{json}') — a quote,
 $, backtick, backslash, or newline in any label breaks shell quoting and wastes many turns.
@@ -200,6 +248,7 @@ NEVER use the Write/fs_write tool to create the temp file — use a heredoc in b
 All commands run from: skills/appian/sail-generation/
   # (heredoc writes /tmp/def-{uuid}.json in the same bash call)
   node generator/define.js --write {uuid} --file /tmp/def-{uuid}.json
+  node generator/bind.js {uuid} --bindings /tmp/bindings-{uuid}.json
   node generator/scaffold.js --from-definition {uuid}
   ./validate.sh <outputPath from scaffold.js stdout>
 ```
@@ -231,17 +280,18 @@ file path in the prompt so it reads its instructions from there.
 | component | `component-agent.md` → routes to planner | haiku |
 | display | `sail-coder.md` | sonnet |
 
-**Live variant selection:** Use the `(live)` variant when the dispatch brief contains
-Concrete Identifiers (record type UUIDs, field UUIDs, relationship UUIDs). If the brief
-only has entity names and inferred fields without UUIDs, use the standard mockup agent.
-This applies uniformly to dashboards, record-views, forms, and wizards.
+**Live variant selection:** Use the `(live)` variant when MCP discovery completed
+successfully (you wrote a bindings manifest). If the brief only has entity names and
+inferred fields without discovery data, use the standard mockup agent.
+This applies uniformly to dashboards, record-views, forms, grids, and wizards.
 
 **Live form/wizard lookup resolution:** For every FK field on the target record type
 that has a many-to-one relationship to a lookup table (e.g. `statusId` → Status,
 `departmentId` → Department), resolve the lookup record type's `id` and `label`/`name`
-fields. Include these in the brief as lookup entries: `{fieldRef, lookupRecordType,
-labelField, valueField, localName}`. The definition agent uses these to generate
-dropdown fields backed by `a!queryRecordType()` instead of static choices.
+fields and include them in the bindings manifest under `lookupRecordTypes`. In the brief,
+list them under LOOKUP RECORD TYPES (e.g. `Status (id, label)`). The definition agent
+uses `@lookupRt.Status`, `@lookupRt.Status.id`, `@lookupRt.Status.label` aliases to
+reference these without touching UUIDs.
 
 **Dynamic page titles:** When the user says the page title should be a field from the
 record (e.g. "title should be the ticket title"), pass the field reference in the brief
@@ -251,10 +301,11 @@ instead of a static string.
 
 **Display names from FK fields:** When the user references a lookup field's display value
 (e.g. "status", "priority", "category" without qualifying "ID"), always resolve through
-the many-to-one relationship to the lookup table's display field. The brief should
-include the full `{relationship, field, localName}` triple for each lookup, never the
-raw FK integer field. The definition agent cannot make this decision on its own — it
-only uses the Concrete Identifiers you supply.
+the many-to-one relationship to the lookup table's display field. Include the relationship
+and its target display field in the bindings manifest's `relationships[].targetFields`.
+In the brief, list the relationship under RELATIONSHIPS with its target fields (e.g.
+`status (→ id, label)`). The definition agent then uses `@rel.status.label` to reference
+the display value instead of the raw FK integer.
 
 ---
 
@@ -337,8 +388,8 @@ Do NOT pass `appUuid` for standalone interfaces — it causes folder errors.
 ## IDEAL TOOL-CALL SEQUENCE
 
 0. `ToolSearch` once for the full expected toolset (discovery + conditional lookups + deploy) — not fetched reactively as each is needed
-1. MCP discovery (`listApplications`, `getRecordType` for each entity)
-2. Dispatch specialist (UUID generated inline, brief includes concrete identifiers)
+1. MCP discovery (`listApplications`, `getRecordType` for each entity) → write bindings manifest
+2. Dispatch specialist (UUID generated inline, brief includes field names + bindings path)
 3. `node generator/resolve-icons.js {uuid} --auto` (only for interfaces with icons — dashboards, KPI stamps)
 4. `createInterface`/`updateInterface` — deploy to Appian
 

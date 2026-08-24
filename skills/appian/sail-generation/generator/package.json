@@ -4,7 +4,7 @@
   "description": "",
   "main": "define.js",
   "scripts": {
-    "test": "node test/run-tests.mjs"
+    "test": "node test/bind.test.mjs"
   },
   "keywords": [],
   "author": "",

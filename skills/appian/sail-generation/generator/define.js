@@ -782,7 +782,8 @@ function validateLiveGridDefinition(def, errors) {
       def.userFilters.forEach((f, fi) => {
         if (typeof f !== "string") {
           errors.push(`userFilters[${fi}]: must be a string (e.g. "recordType!{uuid}Name.filters.status")`);
-        } else if (!f.includes(".filters.")) {
+        } else if (!f.startsWith("@") && !f.includes(".filters.")) {
+          // Alias strings (@filter.X) are resolved by bind.js — skip shape check.
           errors.push(`userFilters[${fi}]: must contain ".filters." (e.g. "recordType!{uuid}Name.filters.status")`);
         }
       });
@@ -843,8 +844,9 @@ function validateGridDefinition(def, errors) {
         if (!action.actionRef || typeof action.actionRef !== "string") {
           errors.push(`${ac}: "actionRef" is required (e.g. "recordType!{rtUuid}Name.actions.{actionUuid}key")`);
         } else {
+          // Alias strings (@action.X) are resolved by bind.js — skip UUID check.
           // actionRef must be UUID-qualified: recordType!{...}Name.actions.{...}key
-          if (!/\.actions\.\{[0-9a-f-]+\}/.test(action.actionRef)) {
+          if (!action.actionRef.startsWith("@") && !/\.actions\.\{[0-9a-f-]+\}/.test(action.actionRef)) {
             errors.push(`${ac}: "actionRef" must include the action UUID — format: "recordType!{rtUuid}Name.actions.{actionUuid}key" (got: ${JSON.stringify(action.actionRef)}). Call listRecordTypeActions to get the action UUID.`);
           }
         }
@@ -907,6 +909,9 @@ const PLACEHOLDER_UUID = /\{0{8}-0{4}-0{4}-0{4}-0{12}\}|\{0{8}-0{4}-0{4}-0{4}-0{
 
 function validateFieldRefShape(ref, context, errors) {
   if (typeof ref !== "string") return; // caught elsewhere as a type error
+  // Alias strings (@rt, @field.X, @rel.X.Y, etc.) are resolved by bind.js
+  // before scaffold.js runs — skip UUID-shape validation for them.
+  if (ref.startsWith("@")) return;
   if (BARE_FIELDS_SEGMENT.test(ref)) {
     errors.push(
       `${context}: "${ref}" has a ".fields." segment without a "{uuid}" prefix on the field name. ` +
@@ -1771,7 +1776,8 @@ function validateRecordViewDefinition(def, errors) {
       errors.push('"editActionRef" requires "dataBinding" to be present — the header action needs rv!identifier to target the current record');
     } else if (typeof def.editActionRef !== "string" || !def.editActionRef) {
       errors.push('"editActionRef" must be a non-empty string (e.g. "recordType!{rtUuid}Name.actions.{actionUuid}editCase")');
-    } else if (!/\.actions\.\{[0-9a-f-]+\}/.test(def.editActionRef)) {
+    } else if (!def.editActionRef.startsWith("@") && !/\.actions\.\{[0-9a-f-]+\}/.test(def.editActionRef)) {
+      // Alias strings (@action.X) are resolved by bind.js — skip UUID check.
       errors.push(`"editActionRef" must include the action UUID — format: "recordType!{rtUuid}Name.actions.{actionUuid}key" (got: ${JSON.stringify(def.editActionRef)}). Call listRecordTypeActions to get the action UUID.`);
     }
   }
